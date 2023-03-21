@@ -15,6 +15,8 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestAWS_FromChunk(t *testing.T) {
@@ -56,11 +58,13 @@ func TestAWS_FromChunk(t *testing.T) {
 				{
 					DetectorType: detectorspb.DetectorType_AWS,
 					Verified:     true,
-					Redacted:     "AKIAWARWQKZNHMZBLY4I",
-					ExtraData: map[string]string{
-						"account": "413504919130",
-						"arn":     "arn:aws:iam::413504919130:root",
-						"user_id": "413504919130",
+					Redacted:     "AKIASP2TPHJSQH3FJRUX",
+					ExtraData: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"account": structpb.NewStringValue("171436882533"),
+							"arn":     structpb.NewStringValue("arn:aws:iam::171436882533:user/canarytokens.com@@4dxkh0pdeop3bzu9zx5wob793"),
+							"user_id": structpb.NewStringValue("AIDASP2TPHJSUFRSTTZX4"),
+						},
 					},
 				},
 			},
@@ -78,7 +82,7 @@ func TestAWS_FromChunk(t *testing.T) {
 				{
 					DetectorType: detectorspb.DetectorType_AWS,
 					Verified:     false,
-					Redacted:     "AKIAWARWQKZNHMZBLY4I",
+					Redacted:     "AKIASP2TPHJSQH3FJRUX",
 					ExtraData:    nil,
 				},
 			},
@@ -108,10 +112,12 @@ func TestAWS_FromChunk(t *testing.T) {
 					DetectorType: detectorspb.DetectorType_AWS,
 					Verified:     true,
 					Redacted:     id,
-					ExtraData: map[string]string{
-						"account": "413504919130",
-						"arn":     "arn:aws:iam::413504919130:root",
-						"user_id": "413504919130",
+					ExtraData: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"account": structpb.NewStringValue("171436882533"),
+							"arn":     structpb.NewStringValue("arn:aws:iam::171436882533:user/canarytokens.com@@4dxkh0pdeop3bzu9zx5wob793"),
+							"user_id": structpb.NewStringValue("AIDASP2TPHJSUFRSTTZX4"),
+						},
 					},
 				},
 				{
@@ -146,10 +152,12 @@ func TestAWS_FromChunk(t *testing.T) {
 					DetectorType: detectorspb.DetectorType_AWS,
 					Verified:     true,
 					Redacted:     id,
-					ExtraData: map[string]string{
-						"account": "413504919130",
-						"arn":     "arn:aws:iam::413504919130:root",
-						"user_id": "413504919130",
+					ExtraData: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"account": structpb.NewStringValue("171436882533"),
+							"arn":     structpb.NewStringValue("arn:aws:iam::171436882533:user/canarytokens.com@@4dxkh0pdeop3bzu9zx5wob793"),
+							"user_id": structpb.NewStringValue("AIDASP2TPHJSUFRSTTZX4"),
+						},
 					},
 				},
 				{
@@ -172,7 +180,7 @@ func TestAWS_FromChunk(t *testing.T) {
 				{
 					DetectorType: detectorspb.DetectorType_AWS,
 					Verified:     false,
-					Redacted:     "AKIAWARWQKZNHMZBLY4I",
+					Redacted:     "AKIASP2TPHJSQH3FJRUX",
 				},
 			},
 			wantErr: false,
@@ -181,7 +189,7 @@ func TestAWS_FromChunk(t *testing.T) {
 			name: "skipped",
 			s: scanner{
 				skipIDs: map[string]struct{}{
-					"AKIAWARWQKZNHMZBLY4I": {},
+					"AKIASP2TPHJSQH3FJRUX": {},
 				},
 			},
 			args: args{
@@ -201,11 +209,16 @@ func TestAWS_FromChunk(t *testing.T) {
 				return
 			}
 			for i := range got {
+				if tt.want[i].ExtraData != nil {
+					if !proto.Equal(got[i].ExtraData, tt.want[i].ExtraData) {
+						t.Errorf("AWS.FromData() %s extra data not equal: got %+v, want %+v", tt.name, got[i].ExtraData, tt.want[i].ExtraData)
+					}
+				}
 				if len(got[i].Raw) == 0 {
 					t.Fatalf("no raw secret present: \n %+v", got[i])
 				}
 			}
-			ignoreOpts := cmpopts.IgnoreFields(detectors.Result{}, "RawV2", "Raw")
+			ignoreOpts := cmpopts.IgnoreFields(detectors.Result{}, "RawV2", "Raw", "ExtraData")
 			if diff := cmp.Diff(got, tt.want, ignoreOpts); diff != "" {
 				t.Errorf("AWS.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
 			}

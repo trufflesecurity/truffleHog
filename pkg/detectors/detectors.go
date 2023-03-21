@@ -12,6 +12,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/source_metadatapb"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/sourcespb"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Detector defines an interface for scanning for and verifying secrets.
@@ -45,7 +46,7 @@ type Result struct {
 	// Redacted contains the redacted version of the raw secret identification data for display purposes.
 	// A secret ID should be used if available.
 	Redacted       string
-	ExtraData      map[string]string
+	ExtraData      *structpb.Struct
 	StructuredData *detectorspb.StructuredData
 }
 

@@ -4,6 +4,8 @@ package detectors;
 
 option go_package = "github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb";
 
+import "google/protobuf/struct.proto";
+
 enum DecoderType {
   UNKNOWN = 0;
   PLAIN = 1;
@@ -926,12 +928,11 @@ message Result {
   string redacted = 3;
   bool verified = 4;
   string hash = 5;
-  map<string, string> extra_data = 6;
+  google.protobuf.Struct extra_data = 6;
   StructuredData structured_data = 7;
   string hash_v2 = 8;
   DecoderType decoder_type = 9;
 }
-
 message StructuredData {
   repeated TlsPrivateKey tls_private_key = 1;
   repeated GitHubSSHKey github_ssh_key = 2;

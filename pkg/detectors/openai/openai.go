@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strconv"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 )
@@ -83,15 +83,17 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					if err == nil {
 						s1.Verified = true
 						org := orgs.Data[0]
-						s1.ExtraData = map[string]string{
-							"id":          org.Id,
-							"title":       org.Title,
-							"user":        org.User,
-							"description": org.Description,
-							"role":        org.Role,
-							"is_personal": strconv.FormatBool(org.Personal),
-							"is_default":  strconv.FormatBool(org.Default),
-							"total_orgs":  fmt.Sprintf("%d", len(orgs.Data)),
+						s1.ExtraData = &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"id":          structpb.NewStringValue(org.Id),
+								"title":       structpb.NewStringValue(org.Title),
+								"user":        structpb.NewStringValue(org.User),
+								"description": structpb.NewStringValue(org.Description),
+								"role":        structpb.NewStringValue(org.Role),
+								"is_personal": structpb.NewBoolValue(org.Personal),
+								"is_default":  structpb.NewBoolValue(org.Default),
+								"total_orgs":  structpb.NewNumberValue(float64(len(orgs.Data))),
+							},
 						}
 					}
 				}

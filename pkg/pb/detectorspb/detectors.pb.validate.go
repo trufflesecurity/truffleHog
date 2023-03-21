@@ -64,7 +64,34 @@ func (m *Result) validate(all bool) error {
 
 	// no validation rules for Hash
 
-	// no validation rules for ExtraData
+	if all {
+		switch v := interface{}(m.GetExtraData()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ResultValidationError{
+					field:  "ExtraData",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ResultValidationError{
+					field:  "ExtraData",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetExtraData()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ResultValidationError{
+				field:  "ExtraData",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if all {
 		switch v := interface{}(m.GetStructuredData()).(type) {

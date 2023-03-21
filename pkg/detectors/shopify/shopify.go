@@ -10,6 +10,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Scanner struct{}
@@ -62,14 +63,15 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 						shopifyTokenAccessScopes := shopifyTokenAccessScopes{}
 						err := json.NewDecoder(res.Body).Decode(&shopifyTokenAccessScopes)
 						if err == nil {
-							var handleArray []string
+							var handleArray []*structpb.Value
 							for _, handle := range shopifyTokenAccessScopes.AccessScopes {
-								handleArray = append(handleArray, handle.Handle)
-
+								handleArray = append(handleArray, structpb.NewStringValue(handle.Handle))
 							}
 							s1.Verified = true
-							s1.ExtraData = map[string]string{
-								"access_scopes": strings.Join(handleArray, ","),
+							s1.ExtraData = &structpb.Struct{
+								Fields: map[string]*structpb.Value{
+									"access_scopes": structpb.NewListValue(&structpb.ListValue{Values: handleArray}),
+								},
 							}
 						}
 						res.Body.Close()

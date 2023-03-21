@@ -9,6 +9,7 @@ import (
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 )
@@ -85,13 +86,15 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					res.Body.Close()
 					if err == nil {
 						s1.Verified = true
-						s1.ExtraData = map[string]string{
-							"username":     userResponse.Login,
-							"url":          userResponse.UserURL,
-							"account_type": userResponse.Type,
-							"site_admin":   fmt.Sprintf("%t", userResponse.SiteAdmin),
-							"name":         userResponse.Name,
-							"company":      userResponse.Company,
+						s1.ExtraData = &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"username":     structpb.NewStringValue(userResponse.Login),
+								"url":          structpb.NewStringValue(userResponse.UserURL),
+								"account_type": structpb.NewStringValue(userResponse.Type),
+								"site_admin":   structpb.NewBoolValue(userResponse.SiteAdmin),
+								"name":         structpb.NewStringValue(userResponse.Name),
+								"company":      structpb.NewStringValue(userResponse.Company),
+							},
 						}
 					}
 				}

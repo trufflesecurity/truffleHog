@@ -3,7 +3,6 @@ package fastlypersonaltoken
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -12,6 +11,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Scanner struct{}
@@ -76,12 +76,14 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 						continue
 					}
 					s1.Verified = true
-					s1.ExtraData = map[string]string{
-						"username":                userRes.Login,
-						"name":                    userRes.Name,
-						"role":                    userRes.Role,
-						"locked":                  fmt.Sprintf("%t", userRes.Locked),
-						"two_factor_auth_enabled": fmt.Sprintf("%t", userRes.TwoFactorAuthEnabled),
+					s1.ExtraData = &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"username":                structpb.NewStringValue(userRes.Login),
+							"name":                    structpb.NewStringValue(userRes.Name),
+							"role":                    structpb.NewStringValue(userRes.Role),
+							"locked":                  structpb.NewBoolValue(userRes.Locked),
+							"two_factor_auth_enabled": structpb.NewBoolValue(userRes.TwoFactorAuthEnabled),
+						},
 					}
 				} else {
 					if detectors.IsKnownFalsePositive(resMatch, detectors.DefaultFalsePositives, true) {

@@ -15,6 +15,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type scanner struct {
@@ -179,10 +180,12 @@ func (s scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 						err := json.NewDecoder(res.Body).Decode(&identityInfo)
 						if err == nil {
 							s1.Verified = true
-							s1.ExtraData = map[string]string{
-								"account": identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.Account,
-								"user_id": identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.UserID,
-								"arn":     identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.Arn,
+							s1.ExtraData = &structpb.Struct{
+								Fields: map[string]*structpb.Value{
+									"account": structpb.NewStringValue(identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.Account),
+									"user_id": structpb.NewStringValue(identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.UserID),
+									"arn":     structpb.NewStringValue(identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.Arn),
+								},
 							}
 						}
 						res.Body.Close()

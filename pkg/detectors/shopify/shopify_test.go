@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kylelemons/godebug/pretty"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
@@ -49,8 +52,13 @@ func TestShopify_FromChunk(t *testing.T) {
 					DetectorType: detectorspb.DetectorType_Shopify,
 					Redacted:     domain,
 					Verified:     true,
-					ExtraData: map[string]string{
-						"access_scopes": "read_analytics,unauthenticated_read_selling_plans",
+					ExtraData: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"access_scopes": structpb.NewListValue(&structpb.ListValue{Values: []*structpb.Value{
+								structpb.NewStringValue("read_analytics"),
+								structpb.NewStringValue("unauthenticated_read_selling_plans"),
+							}}),
+						},
 					},
 				},
 			},
@@ -95,13 +103,19 @@ func TestShopify_FromChunk(t *testing.T) {
 				return
 			}
 			for i := range got {
+				if tt.want[i].ExtraData != nil {
+					if !proto.Equal(got[i].ExtraData, tt.want[i].ExtraData) {
+						t.Errorf("AWS.FromData() %s extra data not equal: got %+v, want %+v", tt.name, got[i].ExtraData, tt.want[i].ExtraData)
+					}
+				}
 				if len(got[i].Raw) == 0 {
 					t.Fatalf("no raw secret present: \n %+v", got[i])
 				}
 				got[i].Raw = nil
 			}
-			if diff := pretty.Compare(got, tt.want); diff != "" {
-				t.Errorf("Shopify.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
+			ignoreOpts := cmpopts.IgnoreFields(detectors.Result{}, "RawV2", "Raw", "ExtraData")
+			if diff := cmp.Diff(got, tt.want, ignoreOpts); diff != "" {
+				t.Errorf("AWS.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
 			}
 		})
 	}
