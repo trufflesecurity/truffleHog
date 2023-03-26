@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
-
-	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 )
 
 const (
@@ -27,9 +25,7 @@ func New() *Cache {
 }
 
 // NewWithData constructs a new in-memory cache with existing data.
-func NewWithData(ctx context.Context, data []string) *Cache {
-	ctx.Logger().V(3).Info("Loading cache", "num-items", len(data))
-
+func NewWithData(data []string) *Cache {
 	items := make(map[string]cache.Item, len(data))
 	for _, d := range data {
 		items[d] = cache.Item{Object: d, Expiration: int64(defaultExpiration)}

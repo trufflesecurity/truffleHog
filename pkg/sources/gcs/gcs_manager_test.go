@@ -473,6 +473,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        150,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/aws1.txt?generation=1677870994890594&alt=media",
 					acl:         []string{},
+					md5:         "ek30X4Oc1ZSsI2sZUkzskg==",
 				},
 				{
 					name:        "moar2.txt",
@@ -481,6 +482,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        12,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/moar2.txt?generation=1677871000378542&alt=media",
 					acl:         []string{},
+					md5:         "5Z/5eUEET4XfUpfhwwLSYA==",
 				},
 				{
 					name:        "aws3.txt",
@@ -489,6 +491,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        150,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th2/o/aws3.txt?generation=1677871022489611&alt=media",
 					acl:         []string{},
+					md5:         "JusDN4oMjpnuDOz5FVrOgQ==",
 				},
 				{
 					name:        "moar.txt",
@@ -497,6 +500,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        6,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th3/o/moar.txt?generation=1677871042896804&alt=media",
 					acl:         []string{},
+					md5:         "CffgLxKQviEdpweiZvFTsw==",
 				},
 				{
 					name:        "AMAZON_FASHION_5.json",
@@ -505,6 +509,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        1413469,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th4/o/AMAZON_FASHION_5.json?generation=1677871063457469&alt=media",
 					acl:         []string{},
+					md5:         "Wh2PSDqjRpUlY3kFDUKitw==",
 				},
 			},
 			wantNumBkt: 4,
@@ -522,6 +527,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        150,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/aws1.txt?generation=1677870994890594&alt=media",
 					acl:         []string{},
+					md5:         "ek30X4Oc1ZSsI2sZUkzskg==",
 				},
 				{
 					name:        "moar2.txt",
@@ -530,6 +536,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        12,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/moar2.txt?generation=1677871000378542&alt=media",
 					acl:         []string{},
+					md5:         "5Z/5eUEET4XfUpfhwwLSYA==",
 				},
 			},
 			wantNumBkt: 1,
@@ -547,6 +554,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        6,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th3/o/moar.txt?generation=1677871042896804&alt=media",
 					acl:         []string{},
+					md5:         "CffgLxKQviEdpweiZvFTsw==",
 				},
 				{
 					name:        "AMAZON_FASHION_5.json",
@@ -555,6 +563,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        1413469,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th4/o/AMAZON_FASHION_5.json?generation=1677871063457469&alt=media",
 					acl:         []string{},
+					md5:         "Wh2PSDqjRpUlY3kFDUKitw==",
 				},
 			},
 			wantNumBkt: 2,
@@ -576,6 +585,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        150,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th2/o/aws3.txt?generation=1677871022489611&alt=media",
 					acl:         []string{},
+					md5:         "JusDN4oMjpnuDOz5FVrOgQ==",
 				},
 				{
 					name:        "moar.txt",
@@ -584,6 +594,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        6,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th3/o/moar.txt?generation=1677871042896804&alt=media",
 					acl:         []string{},
+					md5:         "CffgLxKQviEdpweiZvFTsw==",
 				},
 				{
 					name:        "AMAZON_FASHION_5.json",
@@ -592,6 +603,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        1413469,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th4/o/AMAZON_FASHION_5.json?generation=1677871063457469&alt=media",
 					acl:         []string{},
+					md5:         "Wh2PSDqjRpUlY3kFDUKitw==",
 				},
 			},
 			wantNumBkt: 4, // We still list objects in all buckets.
@@ -613,6 +625,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        150,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/aws1.txt?generation=1677870994890594&alt=media",
 					acl:         []string{},
+					md5:         "ek30X4Oc1ZSsI2sZUkzskg==",
 				},
 			},
 			wantNumBkt: 1,
@@ -634,6 +647,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        150,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/aws1.txt?generation=1677870994890594&alt=media",
 					acl:         []string{},
+					md5:         "ek30X4Oc1ZSsI2sZUkzskg==",
 				},
 			},
 			wantNumBkt: 4,
@@ -656,6 +670,7 @@ func TestGCSManagerListObjects(t *testing.T) {
 					size:        12,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/moar2.txt?generation=1677871000378542&alt=media",
 					acl:         []string{},
+					md5:         "5Z/5eUEET4XfUpfhwwLSYA==",
 				},
 			},
 			wantNumBkt: 1,
@@ -743,6 +758,7 @@ func TestGCSManagerListObjects_Resuming(t *testing.T) {
 					size:        12,
 					link:        "https://storage.googleapis.com/download/storage/v1/b/test-bkt-th/o/moar2.txt?generation=1677871000378542&alt=media",
 					acl:         []string{},
+					md5:         "5Z/5eUEET4XfUpfhwwLSYA==",
 				},
 			},
 			wantNumBkt: 1,
