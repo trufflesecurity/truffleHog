@@ -69,6 +69,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/besttime"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/billomat"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/bitbar"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/bitbucketapppassword"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/bitcoinaverage"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/bitfinex"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/bitlyaccesstoken"
@@ -1523,6 +1524,7 @@ func DefaultDetectors() []detectors.Detector {
 		prefect.Scanner{},
 		buildkitev2.Scanner{},
 		opsgenie.Scanner{},
+		bitbucketapppassword.Scanner{},
 	}
 
 }

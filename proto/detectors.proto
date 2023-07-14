@@ -929,6 +929,7 @@ enum DetectorType {
   Prefect = 918;
   Docusign = 919;
   Couchbase = 920;
+  BitbucketAppPassword = 921;
 }
 
 message Result {
