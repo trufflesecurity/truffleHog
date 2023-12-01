@@ -2,8 +2,8 @@ package whoxy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -29,6 +29,13 @@ var (
 // Use identifiers in the secret preferably, or the provider name.
 func (s Scanner) Keywords() []string {
 	return []string{"whoxy"}
+}
+
+type response struct {
+	Status              int `json:"status"`
+	LiveWhoisBalance    int `json:"live_whois_balance"`
+	WhoisHistoryBalance int `json:"whois_history_balance"`
+	ReverseWhoisBalance int `json:"reverse_whois_balance"`
 }
 
 // FromData will find and optionally verify Whoxy secrets in a given set of bytes.
@@ -57,12 +64,13 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			res, err := client.Do(req)
 			if err == nil {
 				defer res.Body.Close()
-				bodyBytes, err := io.ReadAll(res.Body)
-				if err != nil {
+
+				var apiRes response
+				if err := json.NewDecoder(res.Body).Decode(&apiRes); err != nil {
 					continue
 				}
-				body := string(bodyBytes)
-				if res.StatusCode >= 200 && res.StatusCode < 300 && strings.Contains(body, `"status": 1`) {
+
+				if res.StatusCode >= 200 && res.StatusCode < 300 && apiRes.Status == 1 {
 					s1.Verified = true
 				} else {
 					// This function will check false positives for common test words, but also it will make sure the key appears 'random' enough to be a real key.
