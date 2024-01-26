@@ -24,15 +24,15 @@ var (
 	defaultClient = common.SaneHttpClient()
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	// Key is always 48 characters long, prefix is always papi-
-	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"personio"}) + `\b(papi-[0-9a-zA-Z]{48})\b`)
+	keyPat = regexp.MustCompile(`\b(papi-[0-9a-zA-Z]{48})\b`)
 	// ID is always a guid, prefixed by papi-
-	idPat = regexp.MustCompile(detectors.PrefixRegex([]string{"personio"}) + `\b(papi-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b`)
+	idPat = regexp.MustCompile(`\b(papi-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b`)
 )
 
 // Keywords are used for efficiently pre-filtering chunks.
 // Use identifiers in the secret preferably, or the provider name.
 func (s Scanner) Keywords() []string {
-	return []string{"personio"}
+	return []string{"papi"}
 }
 
 // FromData will find and optionally verify Personio secrets in a given set of bytes.
@@ -64,22 +64,24 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				if client == nil {
 					client = defaultClient
 				}
-				payload := strings.NewReader(fmt.Sprintf(`{"client_id":"%1s","client_secret":"%2s"}`, resIdMatch, resMatch))
+				payload := strings.NewReader(fmt.Sprintf(`{"client_id":"%s","client_secret":"%s"}`, resIdMatch, resMatch))
 				req, err := http.NewRequestWithContext(ctx, "POST", "https://api.personio.de/v1/auth", payload)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("accept", "application/json")
-				req.Header.Add("Content-Type", "application/json")
-				req.Header.Add("client_id", resIdMatch)
-				req.Header.Add("client_secret", resMatch)
+				req.Header.Add("content-type", "application/json")
+
 				res, err := client.Do(req)
+
 				if err == nil {
+
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {
 						s1.Verified = true
-					} else if res.StatusCode == 401 {
+					} else if res.StatusCode == 401 || res.StatusCode == 403 {
 						// The secret is determinately not verified (nothing to do)
+						// 403 is returned if invalid key is used for existing key id
 					} else {
 						err = fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
 						s1.SetVerificationError(err, resMatch)
