@@ -3,9 +3,10 @@ package personio
 import (
 	"context"
 	"fmt"
-	regexp "github.com/wasilibs/go-re2"
 	"net/http"
 	"strings"
+
+	regexp "github.com/wasilibs/go-re2"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
@@ -22,7 +23,10 @@ var _ detectors.Detector = (*Scanner)(nil)
 var (
 	defaultClient = common.SaneHttpClient()
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
-	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"personio"}) + `\b([0-9a-zA-Z]{23}_[0-9a-zA-Z]{8})\b`)
+	// Key is always 48 characters long, prefix is always papi-
+	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"personio"}) + `\b(papi-[0-9a-zA-Z]{48})\b`)
+	// ID is always a guid, prefixed by papi-
+	idPat = regexp.MustCompile(detectors.PrefixRegex([]string{"personio"}) + `\b(papi-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b`)
 )
 
 // Keywords are used for efficiently pre-filtering chunks.
@@ -36,6 +40,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	dataStr := string(data)
 
 	matches := keyPat.FindAllStringSubmatch(dataStr, -1)
+	idMatches := idPat.FindAllStringSubmatch(dataStr, -1)
 
 	for _, match := range matches {
 		if len(match) != 2 {
@@ -43,42 +48,54 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 		resMatch := strings.TrimSpace(match[1])
 
-		s1 := detectors.Result{
-			DetectorType: detectorspb.DetectorType_Personio,
-			Raw:          []byte(resMatch),
-		}
-
-		if verify {
-			client := s.client
-			if client == nil {
-				client = defaultClient
-			}
-			req, err := http.NewRequestWithContext(ctx, "GET", "https://eth-mainnet.g.personio.com/v2/"+resMatch+"/getNFTs/?owner=vitalik.eth", nil)
-			if err != nil {
+		for _, idMatch := range idMatches {
+			if len(idMatch) != 2 {
 				continue
 			}
-			res, err := client.Do(req)
-			if err == nil {
-				defer res.Body.Close()
-				if res.StatusCode >= 200 && res.StatusCode < 300 {
-					s1.Verified = true
-				} else if res.StatusCode == 401 {
-					// The secret is determinately not verified (nothing to do)
+
+			resIdMatch := strings.TrimSpace(idMatch[1])
+			s1 := detectors.Result{
+				DetectorType: detectorspb.DetectorType_Personio,
+				Raw:          []byte(resMatch),
+			}
+
+			if verify {
+				client := s.client
+				if client == nil {
+					client = defaultClient
+				}
+				payload := strings.NewReader(fmt.Sprintf(`{"client_id":"%1s","client_secret":"%2s"}`, resIdMatch, resMatch))
+				req, err := http.NewRequestWithContext(ctx, "POST", "https://api.personio.de/v1/auth", payload)
+				if err != nil {
+					continue
+				}
+				req.Header.Add("accept", "application/json")
+				req.Header.Add("Content-Type", "application/json")
+				req.Header.Add("client_id", resIdMatch)
+				req.Header.Add("client_secret", resMatch)
+				res, err := client.Do(req)
+				if err == nil {
+					defer res.Body.Close()
+					if res.StatusCode >= 200 && res.StatusCode < 300 {
+						s1.Verified = true
+					} else if res.StatusCode == 401 {
+						// The secret is determinately not verified (nothing to do)
+					} else {
+						err = fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
+						s1.SetVerificationError(err, resMatch)
+					}
 				} else {
-					err = fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
 					s1.SetVerificationError(err, resMatch)
 				}
-			} else {
-				s1.SetVerificationError(err, resMatch)
 			}
-		}
 
-		// This function will check false positives for common test words, but also it will make sure the key appears 'random' enough to be a real key.
-		if !s1.Verified && detectors.IsKnownFalsePositive(resMatch, detectors.DefaultFalsePositives, true) {
-			continue
-		}
+			// This function will check false positives for common test words, but also it will make sure the key appears 'random' enough to be a real key.
+			if !s1.Verified && detectors.IsKnownFalsePositive(resMatch, detectors.DefaultFalsePositives, true) {
+				continue
+			}
 
-		results = append(results, s1)
+			results = append(results, s1)
+		}
 	}
 
 	return results, nil

@@ -25,7 +25,8 @@ func TestPersonio_FromChunk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not get test secrets from GCP: %s", err)
 	}
-	secret := testSecrets.MustGetField("PERSONIO")
+	secret := testSecrets.MustGetField("PERSONIOID")
+	secret := testSecrets.MustGetField("PERSONIOKEY")
 	inactiveSecret := testSecrets.MustGetField("PERSONIO_INACTIVE")
 
 	type args struct {
@@ -46,7 +47,7 @@ func TestPersonio_FromChunk(t *testing.T) {
 			s:    Scanner{},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a personio secret %s within", secret)),
+				data:   []byte(fmt.Sprintf("You can find a Personio secret %s within for API key ID %s", secret, key)),
 				verify: true,
 			},
 			want: []detectors.Result{
@@ -63,7 +64,7 @@ func TestPersonio_FromChunk(t *testing.T) {
 			s:    Scanner{},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a personio secret %s within but not valid", inactiveSecret)), // the secret would satisfy the regex but not pass validation
+				data:   []byte(fmt.Sprintf("You can find a Personio secret %s within for API key ID %s but not valid", inactiveSecret, key)), // the secret would satisfy the regex but not pass validation
 				verify: true,
 			},
 			want: []detectors.Result{
@@ -92,7 +93,7 @@ func TestPersonio_FromChunk(t *testing.T) {
 			s:    Scanner{client: common.SaneHttpClientTimeOut(1 * time.Microsecond)},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a personio secret %s within", secret)),
+				data:   []byte(fmt.Sprintf("You can find a Personio secret %s within for API key ID %s", secret, key)),
 				verify: true,
 			},
 			want: []detectors.Result{
@@ -109,7 +110,7 @@ func TestPersonio_FromChunk(t *testing.T) {
 			s:    Scanner{client: common.ConstantResponseHttpClient(404, "")},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a personio secret %s within", secret)),
+				data:   []byte(fmt.Sprintf("You can find a Personio secret %s within for API key ID %s", secret, key)),
 				verify: true,
 			},
 			want: []detectors.Result{
