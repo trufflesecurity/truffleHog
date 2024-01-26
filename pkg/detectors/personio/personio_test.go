@@ -26,8 +26,8 @@ func TestPersonio_FromChunk(t *testing.T) {
 		t.Fatalf("could not get test secrets from GCP: %s", err)
 	}
 	secret := testSecrets.MustGetField("PERSONIOID")
-	secret := testSecrets.MustGetField("PERSONIOKEY")
-	inactiveSecret := testSecrets.MustGetField("PERSONIO_INACTIVE")
+	key := testSecrets.MustGetField("PERSONIOKEY")
+	inactiveSecret := testSecrets.MustGetField("PERSONIOKEY_INACTIVE")
 
 	type args struct {
 		ctx    context.Context
