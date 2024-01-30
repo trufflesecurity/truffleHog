@@ -2,11 +2,20 @@ package gitparse
 
 import (
 	"bytes"
+	_ "embed"
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/log"
+)
+
+var (
+	//go:embed testdata/panic_diff_1.txt
+	panicDiff1 []byte
 )
 
 type testCaseLine struct {
@@ -18,6 +27,20 @@ type testCase struct {
 	passes   []testCaseLine
 	fails    []testCaseLine
 	function func(bool, ParseState, []byte) bool
+}
+
+func TestParsePanicDiff(t *testing.T) {
+	// setup logger
+	logger, sync := log.New("forager/scanner",
+		log.WithConsoleSink(os.Stderr),
+	)
+	defer func() { _ = sync() }()
+	context.SetDefaultLogger(logger)
+
+	ctx := context.Background()
+	parser := NewParser()
+	commitCh := make(chan Commit, 64)
+	parser.FromReader(ctx, io.NopCloser(bytes.NewReader(panicDiff1)), commitCh, false)
 }
 
 func TestLineChecks(t *testing.T) {

@@ -1,0 +1,413 @@
+diff --git a/server/src/main/java/org/opensearch/common/lucene/search/MultiPhrasePrefixQuery.java b/server/src/main/java/org/opensearch/common/lucene/search/MultiPhrasePrefixQuery.java
+index 98ebb34fc040..cc0468efb243 100644
+--- a/server/src/main/java/org/opensearch/common/lucene/search/MultiPhrasePrefixQuery.java
++++ b/server/src/main/java/org/opensearch/common/lucene/search/MultiPhrasePrefixQuery.java
+@@ -39,6 +39,7 @@
+ import org.apache.lucene.index.TermsEnum;
+ import org.apache.lucene.search.BooleanClause;
+ import org.apache.lucene.search.BooleanQuery;
++import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.MatchNoDocsQuery;
+ import org.apache.lucene.search.MultiPhraseQuery;
+ import org.apache.lucene.search.Query;
+@@ -159,8 +160,8 @@ public int[] getPositions() {
+     }
+ 
+     @Override
+-    public Query rewrite(IndexReader reader) throws IOException {
+-        Query rewritten = super.rewrite(reader);
++    public Query rewrite(IndexSearcher searcher) throws IOException {
++        Query rewritten = super.rewrite(searcher);
+         if (rewritten != this) {
+             return rewritten;
+         }
+@@ -177,7 +178,7 @@ public Query rewrite(IndexReader reader) throws IOException {
+         int position = positions.get(sizeMinus1);
+         Set<Term> terms = new HashSet<>();
+         for (Term term : suffixTerms) {
+-            getPrefixTerms(terms, term, reader);
++            getPrefixTerms(terms, term, searcher.getIndexReader());
+             if (terms.size() > maxExpansions) {
+                 break;
+             }
+diff --git a/server/src/main/java/org/opensearch/common/lucene/search/function/FunctionScoreQuery.java b/server/src/main/java/org/opensearch/common/lucene/search/function/FunctionScoreQuery.java
+index ebd155b8a567..db92d4f1cba9 100644
+--- a/server/src/main/java/org/opensearch/common/lucene/search/function/FunctionScoreQuery.java
++++ b/server/src/main/java/org/opensearch/common/lucene/search/function/FunctionScoreQuery.java
+@@ -128,7 +128,7 @@ protected int doHashCode() {
+ 
+         @Override
+         protected ScoreFunction rewrite(IndexReader reader) throws IOException {
+-            Query newFilter = filter.rewrite(reader);
++            Query newFilter = filter.rewrite(new IndexSearcher(reader));
+             if (newFilter == filter) {
+                 return this;
+             }
+@@ -322,16 +322,16 @@ public void visit(QueryVisitor visitor) {
+     }
+ 
+     @Override
+-    public Query rewrite(IndexReader reader) throws IOException {
+-        Query rewritten = super.rewrite(reader);
++    public Query rewrite(IndexSearcher searcher) throws IOException {
++        Query rewritten = super.rewrite(searcher);
+         if (rewritten != this) {
+             return rewritten;
+         }
+-        Query newQ = subQ2023-07-28T08:38:41-07:00     info-0  forager/scanner loaded decoders {"count": 3}
+uery.rewrite(reader);
++        Query newQ = subQuery.rewrite(searcher);
+         ScoreFunction[] newFunctions = new ScoreFunction[functions.length];
+         boolean needsRewrite = (newQ != subQuery);
+         for (int i = 0; i < functions.length; i++) {
+-            newFunctions[i] = functions[i].rewrite(reader);
++            newFunctions[i] = functions[i].rewrite(searcher.getIndexReader());
+             needsRewrite |= (newFunctions[i] != functions[i]);
+         }
+         if (needsRewrite) {
+diff --git a/server/src/main/java/org/opensearch/common/lucene/search/function/ScriptScoreQuery.java b/server/src/main/java/org/opensearch/common/lucene/search/function/ScriptScoreQuery.java
+index 8bf5fc0f89d3..07084a6f690e 100644
+--- a/server/src/main/java/org/opensearch/common/lucene/search/function/ScriptScoreQuery.java
++++ b/server/src/main/java/org/opensearch/common/lucene/search/function/ScriptScoreQuery.java
+@@ -32,7 +32,6 @@
+ 
+ package org.opensearch.common.lucene.search.function;
+ 
+-import org.apache.lucene.index.IndexReader;
+ import org.apache.lucene.index.LeafReaderContext;
+ import org.apache.lucene.search.BooleanClause;
+ import org.apache.lucene.search.DocIdSetIterator;
+@@ -105,12 +104,12 @@ public ScriptScoreQuery(
+     }
+ 
+     @Override
+-    public Query rewrite(IndexReader reader) throws IOException {
+-        Query newQ = subQuery.rewrite(reader);
++    public Query rewrite(IndexSearcher searcher) throws IOException {
++        Query newQ = subQuery.rewrite(searcher);
+         if (newQ != subQuery) {
+             return new ScriptScoreQuery(newQ, queryName, script, scriptBuilder, minScore, indexName, shardId, indexVersion);
+         }
+-        return super.rewrite(reader);
++        return super.rewrite(searcher);
+     }
+ 
+     @Override
+diff --git a/server/src/main/java/org/opensearch/index/document/SortedUnsignedLongDocValuesRangeQuery.java b/server/src/main/java/org/opensearch/index/document/SortedUnsignedLongDocValuesRangeQuery.java
+index 04dd669d6088..234c67cc637f 100644
+--- a/server/src/main/java/org/opensearch/index/document/SortedUnsignedLongDocValuesRangeQuery.java
++++ b/server/src/main/java/org/opensearch/index/document/SortedUnsignedLongDocValuesRangeQuery.java
+@@ -10,7 +10,6 @@
+ 
+ import org.apache.lucene.index.DocValues;
+ import org.apache.lucene.index.FieldInfo;
+-import org.apache.lucene.index.IndexReader;
+ import org.apache.lucene.index.LeafReader;
+ import org.apache.lucene.index.LeafReaderContext;
+ import org.apache.lucene.index.NumericDocValues;
+@@ -87,12 +86,12 @@ public String toString(String field) {
+     }
+ 
+     @Override
+-    public Query rewrite(IndexReader reader) throws IOException {
++    public Query rewrite(IndexSearcher searcher) throws IOException {
+         if (Long.compareUnsigned(lowerValue, Numbers.MIN_UNSIGNED_LONG_VALUE_AS_LONG) == 0
+             && Long.compareUnsigned(upperValue, Numbers.MAX_UNSIGNED_LONG_VALUE_AS_LONG) == 0) {
+             return new FieldExistsQuery(field);
+         }
+-        return super.rewrite(reader);
++        return super.rewrite(searcher);
+     }
+ 
+     abstract SortedNumericDocValues getValues(LeafReader reader, String field) throws IOException;
+diff --git a/server/src/main/java/org/opensearch/index/query/DateRangeIncludingNowQuery.java b/server/src/main/java/org/opensearch/index/query/DateRangeIncludingNowQuery.java
+index 2a7dbf314103..001d77facb82 100644
+--- a/server/src/main/java/org/opensearch/index/query/DateRangeIncludingNowQuery.java
++++ b/server/src/main/java/org/opensearch/index/query/DateRangeIncludingNowQuery.java
+@@ -32,8 +32,8 @@
+ 
+ package org.opensearch.index.query;
+ 
+-import org.apache.lucene.index.IndexReader;
+ import org.apache.lucene.search.BooleanClause;
++import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.Query;
+ import org.apache.lucene.search.QueryVisitor;
+ 
+@@ -60,7 +60,7 @@ public Query getQuery() {
+     }
+ 
+     @Override
+-    public Query r2023-07-28T08:38:41-07:00    info-0  forager/scanner loaded detectors        {"total": 748, "verification_enabled": 748, "verification_disabled": 0}
+ewrite(IndexReader reader) throws IOException {
++    public Query rewrite(IndexSearcher searcher) throws IOException {
+         return in;
+     }
+ 
+diff --git a/server/src/main/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQuery.java b/server/src/main/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQuery.java
+index 770301629d96..cd28d8b6ef04 100644
+--- a/server/src/main/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQuery.java
++++ b/server/src/main/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQuery.java
+@@ -32,7 +32,6 @@
+ 
+ package org.opensearch.index.search;
+ 
+-import org.apache.lucene.index.IndexReader;
+ import org.apache.lucene.search.BooleanClause;
+ import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.Query;
+@@ -82,8 +81,8 @@ public ScoreMode getScoreMode() {
+     }
+ 
+     @Override
+-    public Query rewrite(IndexReader reader) throws IOException {
+-        Query innerRewrite = query.rewrite(reader);
++    public Query rewrite(IndexSearcher searcher) throws IOException {
++        Query innerRewrite = query.rewrite(searcher);
+         if (innerRewrite != query) {
+             // Right now ToParentBlockJoinQuery always rewrites to a ToParentBlockJoinQuery
+             // so the else block will never be used. It is useful in the case that
+@@ -97,7 +96,7 @@ public Query rewrite(IndexReader reader) throws IOException {
+                 return innerRewrite;
+             }
+         }
+-        return super.rewrite(reader);
++        return super.rewrite(searcher);
+     }
+ 
+     @Override
+diff --git a/server/src/main/java/org/opensearch/lucene/queries/MinDocQuery.java b/server/src/main/java/org/opensearch/lucene/queries/MinDocQuery.java
+index 2af0237e800c..5c904d8a7770 100644
+--- a/server/src/main/java/org/opensearch/lucene/queries/MinDocQuery.java
++++ b/server/src/main/java/org/opensearch/lucene/queries/MinDocQuery.java
+@@ -86,7 +86,8 @@ public boolean equals(Object obj) {
+     }
+ 
+     @Override
+-    public Query rewrite(IndexReader reader) throws IOException {
++    public Query rewrite(IndexSearcher searcher) throws IOException {
++        final IndexReader reader = searcher.getIndexReader();
+         if (Objects.equals(reader.getContext().id(), readerId) == false) {
+             return new MinDocQuery(minDoc, reader.getContext().id());
+         }
+diff --git a/server/src/main/java/org/opensearch/search/internal/ContextIndexSearcher.java b/server/src/main/java/org/opensearch/search/internal/ContextIndexSearcher.java
+index 5384b47cc69e..575133fcffad 100644
+--- a/server/src/main/java/org/opensearch/search/internal/ContextIndexSearcher.java
++++ b/server/src/main/java/org/opensearch/search/internal/ContextIndexSearcher.java
+@@ -339,14 +339,9 @@ private void searchLeaf(LeafReaderContext ctx, Weight weight, Collector collecto
+                     // continue with the following leaf
+                 } catch (QueryPhase.TimeExceededException e) {
+                     searchContext.setSearchTimedOut(true);
+-                    return;
+                 }
+             }
+         }
+-
+-        // Note: this is called if collection ran successfully, including the above special cases of
+-        // CollectionTerminatedException and TimeExceededException, but no other exception.
+-        leafCollector.finish();
+     }
+ 
+     private Weight wrapWeight(Weight weight) {
+diff --git a/server/src/main/java/org/opensearch/search/suggest/completion/CompletionSuggester.java b/server/src/main/java/org/opensearch/search/suggest/completion/CompletionSuggester.java
+index df18e874be9c..af7b1a798a77 100644
+--- a/server/src/main/java/org/opensearch/search/suggest/completion/CompletionSuggester.java
++++ b/server/src/main/java/org/opensearch/search/suggest/completion/CompletionSuggester.java
+@@ -35,7 +35,6 @@
+ import org.apache.lucene.search.BulkScorer;
+ import org.apache.lucene.search.CollectionTerminatedException;
+ import org.apache.lucene.search.IndexSearcher;
+-import org.apache.lucene.search.LeafCollector;
+ import org.apache.lucene.search.Weight;
+ import org.apache.lucene.search.suggest.document.CompletionQuery;
+ import org.apache.lucene.search.suggest.document.TopSuggestDocs;
+@@ -104,24 +103,17 @@ protected Suggest.Suggestion<? extends Suggest.Suggestion.Entry<? extends Sugges
+     }
+ 
+     private static void suggest(IndexSearcher searcher, CompletionQuery query, TopSuggestDocsCollector collector) throws IOException {
+-        query = (CompletionQuery) query.rewrite(searcher.getIndexReader());
++        query = (CompletionQuery) query.rewrite(searcher);
+         Weight weight = query.createWeight(searcher, collector.scoreMode(), 1f);
+         for (LeafReaderContext context : searcher.getIndexReader().leaves()) {
+             BulkScorer scorer = weight.bulkScorer(context);
+             if (scorer != null) {
+-                LeafCollector leafCollector = null;
+                 try {
+-                    leafCollector = collector.getLeafCollector(context);
+-                    scorer.score(leafCollector, context.reader().getLiveDocs());
++                    scorer.score(collector.getLeafCollector(context), context.reader().getLiveDocs());
+                 } catch (CollectionTerminatedException e) {
+                     // collection was terminated prematurely
+                     // continue with the following leaf
+                 }
+-                // Note: this is called if collection ran successfully, including the above special cases of
+-                // CollectionTerminatedException and TimeExceededException, but no other exception.
+-                if (leafCollector != null) {
+-                    leafCollector.finish();
+-                }
+             }
+         }
+     }
+diff --git a/server/src/test/java/org/opensearch/deps/lucene/VectorHighlighterTests.java b/server/src/test/java/org/opensearch/deps/lucene/VectorHighlighterTests.java
+index 0f831ff28af7..880eaeca99bb 100644
+--- a/server/src/test/java/org/opensearch/deps/lucene/VectorHighlighterTests.java
++++ b/server/src/test/java/org/opensearch/deps/lucene/VectorHighlighterTests.java
+@@ -125,7 +125,7 @@ public void testVectorHighlighterPrefixQuery() throws Exception {
+         assertThat(fragment, nullValue());
+ 
+         prefixQuery = new PrefixQuery(new Term("content", "ba"), PrefixQuery.SCORING_BOOLEAN_REWRITE);
+-        Query rewriteQuery = prefixQuery.rewrite(reader);
++        Query rewriteQuery = prefixQuery.rewrite(searcher);
+         fragment = highlighter.getBestFragment(highlighter.getFieldQuery(rewriteQuery), reader, topDocs.scoreDocs[0].doc, "content", 30);
+         assertThat(fragment, notNullValue());
+ 
+diff --git a/server/src/test/java/org/opensearch/index/mapper/DateFieldTypeTests.java b/server/src/test/java/org/opensearch/index/mapper/DateFieldTypeTests.java
+index d360a2a767e8..510dd3456924 100644
+--- a/server/src/test/java/org/opensearch/index/mapper/DateFieldTypeTests.java
++++ b/server/src/test/java/org/opensearch/index/mapper/DateFieldTypeTests.java
+@@ -40,6 +40,7 @@
+ import org.apache.lucene.index.IndexWriterConfig;
+ import org.apache.lucene.index.MultiReader;
+ import org.apache.lucene.index.SortedNumericDocValues;
++import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.IndexSortSortedNumericDocValuesRangeQuery;
+ import org.apache.lucene.search.DocIdSetIterator;
+ import org.apache.lucene.search.IndexOrDocValuesQuery;
+@@ -259,7 +260,10 @@ public void testRangeQuery() throws IOException {
+             LongPoint.newRangeQuery("field", instant1, instant2),
+             SortedNumericDocValuesField.newSlowRangeQuery("field", instant1, instant2)
+         );
+-        assertEquals(expected, ft.rangeQuery(date1, date2, true, true, null, null, null, context).rewrite(new MultiReader()));
++        assertEquals(
++            expected,
++            ft.rangeQuery(date1, date2, true, true, null, null, null, context).rewrite(new IndexSearcher(new MultiReader()))
++        );
+ 
+         instant1 = nowInMillis;
+         instant2 = instant1 + 100;
+diff --git a/server/src/test/java/org/opensearch/index/query/SpanMultiTermQueryBuilderTests.java b/server/src/test/java/org/opensearch/index/query/SpanMultiTermQueryBuilderTests.java
+index bc514208c803..be87f7ca1590 100644
+--- a/server/src/test/java/org/opensearch/index/query/SpanMultiTermQueryBuilderTests.java
++++ b/server/src/test/java/org/opensearch/index/query/SpanMultiTermQueryBuilderTests.java
+@@ -284,8 +284,9 @@ public void testTermExpansionExceptionOnSpanFailure() throws Exception {
+                     BooleanQuery.setMaxClauseCount(1);
+                     try {
+                         QueryBuilder queryBuilder = new SpanMultiTermQueryBuilder(QueryBuilders.prefixQuery("body", "bar"));
+-                        Query query = queryBuilder.toQuery(createShardContext(new IndexSearcher(reader)));
+-                        RuntimeException exc = expectThrows(RuntimeException.class, () -> query.rewrite(reader));
++                        IndexSearcher searcher = new IndexSearcher(reader);
++                        Query query = queryBuilder.toQuery(createShardContext(searcher));
++                        RuntimeException exc = expectThrows(RuntimeException.class, () -> query.rewrite(searcher));
+                         assertThat(exc.getMessage(), containsString("maxClauseCount"));
+                     } finally {
+                         BooleanQuery.setMaxClauseCount(origBoolMaxClauseCount);
+diff --git a/server/src/test/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQueryTests.java b/server/src/test/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQueryTests.java
+index 39160b1ac49b..45172c946ab3 100644
+--- a/server/src/test/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQueryTests.java
++++ b/server/src/test/java/org/opensearch/index/search/OpenSearchToParentBlockJoinQueryTests.java
+@@ -34,6 +34,7 @@
+ 
+ import org.apache.lucene.index.MultiReader;
+ import org.apache.lucene.index.Term;
++import org.apache.lucene.search.IndexSearcher;
+ import org.apache.lucene.search.PhraseQuery;
+ import org.apache.lucene.search.Query;
+ import org.apache.lucene.search.TermQuery;
+@@ -112,7 +113,7 @@ public void testRewrite() throws IOException {
+             ScoreMode.Avg,
+             "nested"
+         );
+-        Query rewritten = q.rewrite(new MultiReader());
++        Query rewritten = q.rewrite(new IndexSearcher(new MultiReader()));
+         assertEquals(expected, rewritten);
+     }
+ }
+diff --git a/server/src/test/java/org/opensearch/lucene/queries/MinDocQueryTests.java b/server/src/test/java/org/opensearch/lucene/queries/MinDocQueryTests.java
+index a75a1d5b2fdb..701ba5a756b4 100644
+--- a/server/src/test/java/org/opensearch/lucene/queries/MinDocQueryTests.java
++++ b/server/src/test/java/org/opensearch/lucene/queries/MinDocQueryTests.java
+@@ -61,10 +61,11 @@ public void testBasics() {
+ 
+     public void testRewrite() throws Exception {
+         IndexReader reader = new MultiReader();
++        IndexSearcher searcher = new IndexSearcher(reader);
+         MinDocQuery query = new MinDocQuery(42);
+-        Query rewritten = query.rewrite(reader);
++        Query rewritten = query.rewrite(searcher);
+         QueryUtils.checkUnequal(query, rewritten);
+-        Query rewritten2 = rewritten.rewrite(reader);
++        Query rewritten2 = rewritten.rewrite(searcher);
+         assertSame(rewritten, rewritten2);
+     }
+ 
+diff --git a/server/src/test/java/org/opensearch/lucene/queries/SpanMatchNoDocsQueryTests.java b/server/src/test/java/org/opensearch/lucene/queries/SpanMatchNoDocsQueryTests.java
+index 727377c9a5d5..81f4290b6588 100644
+--- a/server/src/test/java/org/opensearch/lucene/queries/SpanMatchNoDocsQueryTests.java
++++ b/server/src/test/java/org/opensearch/lucene/queries/SpanMatchNoDocsQueryTests.java
+@@ -56,19 +56,11 @@
+ 
+ public class SpanMatchNoDocsQueryTests extends OpenSearchTestCase {
+     public void testSimple() throws Exception {
+-        Directory dir = newDirectory();
+-        IndexWriter iw = new IndexWriter(dir, newIndexWriterConfig());
+-        IndexReader ir = DirectoryReader.open(iw);
+-
+         SpanMatchNoDocsQuery query = new SpanMatchNoDocsQuery("field", "a good reason");
+         assertEquals(query.toString(), "SpanMatchNoDocsQuery(\"a good reason\")");
+-        Query rewrite = query.rewrite(ir);
++        Query rewrite = query.rewrite((IndexSearcher) null);
+         assertTrue(rewrite instanceof SpanMatchNoDocsQuery);
+         assertEquals(rewrite.toString(), "SpanMatchNoDocsQuery(\"a good reason\")");
+-
+-        iw.close();
+-        ir.close();
+-        dir.close();
+     }
+ 
+     public void testQuery() throws Exception {
+@@ -101,7 +93,7 @@ public void testQuery() throws Exception {
+         assertEquals(searcher.count(orQuery), 1);
+         hits = searcher.search(orQuery, 1000).scoreDocs;
+         assertEquals(1, hits.length);
+-        Query rewrite = orQuery.rewrite(ir);
++        Query rewrite = orQuery.rewrite(searcher);
+         assertEquals(rewrite, orQuery);
+ 
+         SpanNearQuery nearQuery = new SpanNearQuery(
+@@ -112,7 +104,7 @@ public void testQuery() throws Exception {
+         assertEquals(searcher.count(nearQuery), 0);
+         hits = searcher.search(nearQuery, 1000).scoreDocs;
+         assertEquals(0, hits.length);
+-        rewrite = nearQuery.rewrite(ir);
++        rewrite = nearQuery.rewrite(searcher);
+         assertEquals(rewrite, nearQuery);
+ 
+         iw.close();
+diff --git a/server/src/test/java/org/opensearch/search/internal/ContextIndexSearcherTests.java b/server/src/test/java/org/opensearch/search/internal/ContextIndexSearcherTests.java
+index f3907355ac6e..823fc6b46390 100644
+--- a/server/src/test/java/org/opensearch/search/internal/ContextIndexSearcherTests.java
++++ b/server/src/test/java/org/opensearch/search/internal/ContextIndexSearcherTests.java
+@@ -40,7 +40,6 @@
+ import org.apache.lucene.document.StringField;
+ import org.apache.lucene.index.DirectoryReader;
+ import org.apache.lucene.index.FilterDirectoryReader;
+-import org.apache.lucene.index.IndexReader;
+ import org.apache.lucene.index.IndexWriter;
+ import org.apache.lucene.index.IndexWriterConfig;
+ import org.apache.lucene.index.LeafReader;
+@@ -466,12 +465,12 @@ public String toString(String field) {
+         }
+ 
+         @Override
+-        public Query rewrite(IndexReader reader) throws IOException {
+-            Query queryRewritten = query.rewrite(reader);
++        public Query rewrite(IndexSearcher searcher) throws IOException {
++            Query queryRewritten = query.rewrite(searcher);
+             if (query != queryRewritten) {
+                 return new CreateScorerOnceQuery(queryRewritten);
+             }
+-            return super.rewrite(reader);
++            return super.rewrite(searcher);
+         }
+ 
+         @Override
