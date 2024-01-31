@@ -988,6 +988,7 @@ enum DetectorType {
   AzureSearchQueryKey = 977;
   AzureManagementCertificate = 978;
   AzureSQL = 979;
+  Personio = 980;
 }
 
 message Result {
