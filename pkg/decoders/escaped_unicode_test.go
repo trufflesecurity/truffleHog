@@ -5,6 +5,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
 )
 
@@ -68,7 +69,7 @@ func TestUnicodeEscape_FromChunk(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &EscapedUnicode{}
-			got := d.FromChunk(tt.chunk)
+			got := d.FromChunk(context.Background(), tt.chunk)
 			if tt.want != nil {
 				if got == nil {
 					t.Fatal("got nil, did not want nil")

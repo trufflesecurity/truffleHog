@@ -6,6 +6,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
 )
 
@@ -76,7 +77,7 @@ func TestUTF8_FromChunk_ValidUTF8(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &UTF8{}
-			got := d.FromChunk(tt.args.chunk)
+			got := d.FromChunk(context.Background(), tt.args.chunk)
 			if got != nil && tt.want != nil {
 				if diff := pretty.Compare(string(got.Data), string(tt.want.Data)); diff != "" {
 					t.Errorf("%s: UTF8.FromChunk() diff: (-got +want)\n%s", tt.name, diff)
@@ -343,7 +344,7 @@ func TestUTF8_FromChunk_InvalidUTF8(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &UTF8{}
-			got := d.FromChunk(tt.args.chunk)
+			got := d.FromChunk(context.Background(), tt.args.chunk)
 			if got != nil && tt.want != nil {
 				if diff := pretty.Compare(string(got.Data), string(tt.want.Data)); diff != "" {
 					t.Errorf("%s: UTF8.FromChunk() diff: (-got +want)\n%s", tt.name, diff)

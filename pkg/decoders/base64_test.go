@@ -5,6 +5,7 @@ import (
 
 	"github.com/kylelemons/godebug/pretty"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
 )
@@ -134,7 +135,7 @@ func TestBase64_FromChunk(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &Base64{}
-			got := d.FromChunk(tt.chunk)
+			got := d.FromChunk(context.Background(), tt.chunk)
 			if tt.want != nil {
 				if got == nil {
 					t.Fatal("got nil, did not want nil")
@@ -156,7 +157,7 @@ func BenchmarkFromChunkSmall(b *testing.B) {
 	data := detectors.MustGetBenchmarkData()["small"]
 
 	for n := 0; n < b.N; n++ {
-		d.FromChunk(&sources.Chunk{Data: data})
+		d.FromChunk(context.Background(), &sources.Chunk{Data: data})
 	}
 }
 
@@ -165,7 +166,7 @@ func BenchmarkFromChunkMedium(b *testing.B) {
 	data := detectors.MustGetBenchmarkData()["medium"]
 
 	for n := 0; n < b.N; n++ {
-		d.FromChunk(&sources.Chunk{Data: data})
+		d.FromChunk(context.Background(), &sources.Chunk{Data: data})
 	}
 }
 
@@ -174,6 +175,6 @@ func BenchmarkFromChunkLarge(b *testing.B) {
 	data := detectors.MustGetBenchmarkData()["big"]
 
 	for n := 0; n < b.N; n++ {
-		d.FromChunk(&sources.Chunk{Data: data})
+		d.FromChunk(context.Background(), &sources.Chunk{Data: data})
 	}
 }
