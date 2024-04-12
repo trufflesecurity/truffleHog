@@ -98,6 +98,11 @@ message Git {
   string repository = 4;
   string timestamp = 5;
   int64 line = 6;
+  // The provenance of a commit provided by `git log --source`.
+  // e.g., `commit 8d2c7e6760b9bdc4fe36fee11cb3f28d7e469203 (HEAD -> feat/example)`
+  //
+  // See: https://git-scm.com/docs/git-log#Documentation/git-log.txt---source
+  string commit_source = 7;
 }
 
 message Github {
@@ -110,6 +115,11 @@ message Github {
   string timestamp = 7;
   int64 line = 8;
   Visibility visibility = 9;
+  // The provenance of a commit provided by `git log --source`.
+  // e.g., `commit 8d2c7e6760b9bdc4fe36fee11cb3f28d7e469203 (HEAD -> feat/example)`
+  //
+  // See: https://git-scm.com/docs/git-log#Documentation/git-log.txt---source
+  string commit_source = 10;
 }
 
 message Gitlab {
@@ -123,6 +133,11 @@ message Gitlab {
   int64 project_id = 8;
   string project_name = 9;
   string project_owner = 10;
+  // The provenance of a commit provided by `git log --source`.
+  // e.g., `commit 8d2c7e6760b9bdc4fe36fee11cb3f28d7e469203 (HEAD -> feat/example)`
+  //
+  // See: https://git-scm.com/docs/git-log#Documentation/git-log.txt---source
+  string commit_source = 11;
 }
 
 message GCS {

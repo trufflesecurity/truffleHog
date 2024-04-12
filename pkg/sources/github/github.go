@@ -272,18 +272,19 @@ func (s *Source) Init(aCtx context.Context, name string, jobID sources.JobID, so
 		SkipBinaries: conn.GetSkipBinaries(),
 		SkipArchives: conn.GetSkipArchives(),
 		Concurrency:  concurrency,
-		SourceMetadataFunc: func(file, email, commit, timestamp, repository string, line int64) *source_metadatapb.MetaData {
+		SourceMetadataFunc: func(repository, commit, commitSource, email, timestamp, file string, line int64) *source_metadatapb.MetaData {
 			return &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Github{
 					Github: &source_metadatapb.Github{
-						Commit:     sanitizer.UTF8(commit),
-						File:       sanitizer.UTF8(file),
-						Email:      sanitizer.UTF8(email),
-						Repository: sanitizer.UTF8(repository),
-						Link:       giturl.GenerateLink(repository, commit, file, line),
-						Timestamp:  sanitizer.UTF8(timestamp),
-						Line:       line,
-						Visibility: s.visibilityOf(aCtx, repository),
+						Repository:   sanitizer.UTF8(repository),
+						Visibility:   s.visibilityOf(aCtx, repository),
+						Commit:       sanitizer.UTF8(commit),
+						CommitSource: sanitizer.UTF8(commitSource),
+						Email:        sanitizer.UTF8(email),
+						Timestamp:    sanitizer.UTF8(timestamp),
+						File:         sanitizer.UTF8(file),
+						Line:         line,
+						Link:         giturl.GenerateLink(repository, commit, file, line),
 					},
 				},
 			}
@@ -1171,12 +1172,12 @@ func (s *Source) chunkGistComments(ctx context.Context, gistURL string, gistInfo
 			SourceMetadata: &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Github{
 					Github: &source_metadatapb.Github{
-						Link:       sanitizer.UTF8(comment.GetURL()),
 						Username:   sanitizer.UTF8(comment.GetUser().GetLogin()),
-						Email:      sanitizer.UTF8(comment.GetUser().GetEmail()),
 						Repository: sanitizer.UTF8(gistURL),
-						Timestamp:  sanitizer.UTF8(comment.GetCreatedAt().String()),
 						Visibility: gistInfo.visibility,
+						Email:      sanitizer.UTF8(comment.GetUser().GetEmail()),
+						Timestamp:  sanitizer.UTF8(comment.GetCreatedAt().String()),
+						Link:       sanitizer.UTF8(comment.GetURL()),
 					},
 				},
 			},
@@ -1280,12 +1281,12 @@ func (s *Source) chunkIssues(ctx context.Context, repoInfo repoInfo, issues []*g
 			SourceMetadata: &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Github{
 					Github: &source_metadatapb.Github{
-						Link:       sanitizer.UTF8(issue.GetHTMLURL()),
 						Username:   sanitizer.UTF8(issue.GetUser().GetLogin()),
-						Email:      sanitizer.UTF8(issue.GetUser().GetEmail()),
 						Repository: sanitizer.UTF8(repoInfo.fullName),
-						Timestamp:  sanitizer.UTF8(issue.GetCreatedAt().String()),
 						Visibility: repoInfo.visibility,
+						Email:      sanitizer.UTF8(issue.GetUser().GetEmail()),
+						Timestamp:  sanitizer.UTF8(issue.GetCreatedAt().String()),
+						Link:       sanitizer.UTF8(issue.GetHTMLURL()),
 					},
 				},
 			},
@@ -1347,12 +1348,12 @@ func (s *Source) chunkIssueComments(ctx context.Context, repoInfo repoInfo, comm
 			SourceMetadata: &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Github{
 					Github: &source_metadatapb.Github{
-						Link:       sanitizer.UTF8(comment.GetHTMLURL()),
 						Username:   sanitizer.UTF8(comment.GetUser().GetLogin()),
-						Email:      sanitizer.UTF8(comment.GetUser().GetEmail()),
 						Repository: sanitizer.UTF8(repoInfo.fullName),
-						Timestamp:  sanitizer.UTF8(comment.GetCreatedAt().String()),
 						Visibility: repoInfo.visibility,
+						Email:      sanitizer.UTF8(comment.GetUser().GetEmail()),
+						Timestamp:  sanitizer.UTF8(comment.GetCreatedAt().String()),
+						Link:       sanitizer.UTF8(comment.GetHTMLURL()),
 					},
 				},
 			},
@@ -1443,12 +1444,12 @@ func (s *Source) chunkPullRequests(ctx context.Context, repoInfo repoInfo, prs [
 			SourceMetadata: &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Github{
 					Github: &source_metadatapb.Github{
-						Link:       sanitizer.UTF8(pr.GetHTMLURL()),
 						Username:   sanitizer.UTF8(pr.GetUser().GetLogin()),
-						Email:      sanitizer.UTF8(pr.GetUser().GetEmail()),
 						Repository: sanitizer.UTF8(repoInfo.fullName),
-						Timestamp:  sanitizer.UTF8(pr.GetCreatedAt().String()),
 						Visibility: repoInfo.visibility,
+						Email:      sanitizer.UTF8(pr.GetUser().GetEmail()),
+						Timestamp:  sanitizer.UTF8(pr.GetCreatedAt().String()),
+						Link:       sanitizer.UTF8(pr.GetHTMLURL()),
 					},
 				},
 			},
@@ -1479,12 +1480,12 @@ func (s *Source) chunkPullRequestComments(ctx context.Context, repoInfo repoInfo
 			SourceMetadata: &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Github{
 					Github: &source_metadatapb.Github{
-						Link:       sanitizer.UTF8(comment.GetHTMLURL()),
 						Username:   sanitizer.UTF8(comment.GetUser().GetLogin()),
-						Email:      sanitizer.UTF8(comment.GetUser().GetEmail()),
 						Repository: sanitizer.UTF8(repoInfo.fullName),
-						Timestamp:  sanitizer.UTF8(comment.GetCreatedAt().String()),
 						Visibility: repoInfo.visibility,
+						Email:      sanitizer.UTF8(comment.GetUser().GetEmail()),
+						Timestamp:  sanitizer.UTF8(comment.GetCreatedAt().String()),
+						Link:       sanitizer.UTF8(comment.GetHTMLURL()),
 					},
 				},
 			},

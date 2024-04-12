@@ -106,7 +106,7 @@ func (s *Source) Init(aCtx context.Context, name string, jobID sources.JobID, so
 		SkipBinaries: false,
 		SkipArchives: false,
 		Concurrency:  concurrency,
-		SourceMetadataFunc: func(file, email, commit, timestamp, repository string, line int64) *source_metadatapb.MetaData {
+		SourceMetadataFunc: func(repository, commit, ref, email, timestamp, file string, line int64) *source_metadatapb.MetaData {
 			return &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Github{
 					Github: &source_metadatapb.Github{

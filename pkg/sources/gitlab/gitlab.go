@@ -199,17 +199,18 @@ func (s *Source) Init(ctx context.Context, name string, jobId sources.JobID, sou
 		SkipBinaries: conn.GetSkipBinaries(),
 		SkipArchives: conn.GetSkipArchives(),
 		Concurrency:  concurrency,
-		SourceMetadataFunc: func(file, email, commit, timestamp, repository string, line int64) *source_metadatapb.MetaData {
+		SourceMetadataFunc: func(repository, commit, commitSource, email, timestamp, file string, line int64) *source_metadatapb.MetaData {
 			return &source_metadatapb.MetaData{
 				Data: &source_metadatapb.MetaData_Gitlab{
 					Gitlab: &source_metadatapb.Gitlab{
-						Commit:     sanitizer.UTF8(commit),
-						File:       sanitizer.UTF8(file),
-						Email:      sanitizer.UTF8(email),
-						Repository: sanitizer.UTF8(repository),
-						Link:       giturl.GenerateLink(repository, commit, file, line),
-						Timestamp:  sanitizer.UTF8(timestamp),
-						Line:       line,
+						Repository:   sanitizer.UTF8(repository),
+						Commit:       sanitizer.UTF8(commit),
+						CommitSource: sanitizer.UTF8(commitSource),
+						Email:        sanitizer.UTF8(email),
+						Timestamp:    sanitizer.UTF8(timestamp),
+						File:         sanitizer.UTF8(file),
+						Line:         line,
+						Link:         giturl.GenerateLink(repository, commit, file, line),
 					},
 				},
 			}

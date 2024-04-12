@@ -704,6 +704,45 @@ func TestLineChecksNoStaged(t *testing.T) {
 	}
 }
 
+func Test_parseCommitLine(t *testing.T) {
+	cases := map[string][]string{
+		"commit 198c63cb8212a99cc4352bc72f25e5444a786291 refs/heads/main\n":                       {"198c63cb8212a99cc4352bc72f25e5444a786291", "refs/heads/main"},
+		"commit e76dfb98ab9001daa869191b6aebe8cf4cd3b22a refs/remotes/origin/debug/aws-logging\n": {"e76dfb98ab9001daa869191b6aebe8cf4cd3b22a", "refs/remotes/origin/debug/aws-logging"},
+	}
+
+	for line, expected := range cases {
+		hash, ref := parseCommitLine([]byte(line))
+		if string(hash) != expected[0] {
+			t.Errorf("Expected: %s, Got: %s", expected[0], hash)
+		}
+		if string(ref) != expected[1] {
+			t.Errorf("Expected: %s, Got: %s", expected[1], ref)
+		}
+	}
+}
+
+func Test_parseSourceRef(t *testing.T) {
+	cases := map[string]string{
+		"refs/heads/master": "",
+		"refs/tags/v3.0.5":  "",
+		// refs/merge-requests/33/head
+		"refs/heads/thog/mr/33/head": "Merge request #33",
+		// refs/merge-requests/19/merge
+		"refs/heads/thog/mr/19/merge": "Merge request #19",
+		// refs/pull/980/head
+		"refs/heads/thog/pr/980/head": "Pull request #980",
+		// refs/pull/1644/merge
+		"refs/heads/thog/pr/1644/merge": "Pull request #1644",
+	}
+
+	for line, expected := range cases {
+		source := parseSourceRef([]byte(line))
+		if source != expected {
+			t.Errorf("Expected: %s, Got: %s", expected, source)
+		}
+	}
+}
+
 func TestBinaryPathParse(t *testing.T) {
 	cases := map[string]string{
 		"Binary files a/trufflehog_3.42.0_linux_arm64.tar.gz and /dev/null differ\n":                                                                                         "",
