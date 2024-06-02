@@ -26,8 +26,6 @@ var _ detectors.Versioner = (*Scanner)(nil)
 func (Scanner) Version() int { return 1 }
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	tokenPat  = regexp.MustCompile(detectors.PrefixRegex([]string{"jira"}) + `\b([a-zA-Z-0-9]{24})\b`)
 	domainPat = regexp.MustCompile(detectors.PrefixRegex([]string{"jira"}) + `\b([a-zA-Z-0-9]{5,24}\.[a-zA-Z-0-9]{3,16}\.[a-zA-Z-0-9]{3,16})\b`)
@@ -77,8 +75,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
-					client := s.getClient()
-					isVerified, verificationErr := verifyJiratoken(ctx, client, email, domain, token)
+					if s.client == nil {
+						s.client = detectors.GetHttpClientWithNoLocalAddresses()
+					}
+					isVerified, verificationErr := verifyJiratoken(ctx, s.client, email, domain, token)
 					s1.Verified = isVerified
 					s1.SetVerificationError(verificationErr, token)
 				}
@@ -89,13 +89,6 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	}
 
 	return results, nil
-}
-
-func (s Scanner) getClient() *http.Client {
-	if s.client != nil {
-		return s.client
-	}
-	return defaultClient
 }
 
 func verifyJiratoken(ctx context.Context, client *http.Client, email, domain, token string) (bool, error) {

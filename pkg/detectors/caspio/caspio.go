@@ -13,6 +13,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -20,8 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"caspio"}) + `\b([a-z0-9]{50})\b`)
 	idPat     = regexp.MustCompile(detectors.PrefixRegex([]string{"caspio"}) + `\b([a-z0-9]{50})\b`)
@@ -60,13 +59,17 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
+					if s.client == nil {
+						s.client = detectors.GetHttpClientWithNoLocalAddresses()
+					}
+
 					payload := strings.NewReader(fmt.Sprintf(`grant_type=client_credentials&client_id=%s&client_secret=%s`, resIdMatch, resMatch))
 					req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("https://%s.caspio.com/oauth/token", resDomainMatch), payload)
 					if err != nil {
 						continue
 					}
 					req.Header.Add("Content-Type", "text/plain")
-					res, err := client.Do(req)
+					res, err := s.client.Do(req)
 					if err == nil {
 						defer res.Body.Close()
 						if res.StatusCode >= 200 && res.StatusCode < 300 {

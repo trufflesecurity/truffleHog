@@ -14,6 +14,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +22,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"signalwire"}) + `\b([0-9A-Za-z]{50})\b`)
 	idPat  = regexp.MustCompile(detectors.PrefixRegex([]string{"signalwire"}) + `\b([0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12})\b`)
@@ -58,6 +57,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
+					if s.client == nil {
+						s.client = detectors.GetHttpClientWithNoLocalAddresses()
+					}
+
 					data := fmt.Sprintf("%s:%s", resID, resMatch)
 					sEnc := b64.StdEncoding.EncodeToString([]byte(data))
 					req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/api/laml/2010-04-01/Accounts", resURL), nil)
@@ -66,7 +69,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					}
 					req.Header.Add("Content-Type", "application/json")
 					req.Header.Add("Authorization", fmt.Sprintf("Basic %s", sEnc))
-					res, err := client.Do(req)
+					res, err := s.client.Do(req)
 					if err == nil {
 						defer res.Body.Close()
 						if res.StatusCode >= 200 && res.StatusCode < 300 {

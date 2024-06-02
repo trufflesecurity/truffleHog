@@ -22,8 +22,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(`(https:\/\/[a-zA-Z-0-9]+\.webhook\.office\.com\/webhookb2\/[a-zA-Z-0-9]{8}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{12}\@[a-zA-Z-0-9]{8}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{12}\/IncomingWebhook\/[a-zA-Z-0-9]{32}\/[a-zA-Z-0-9]{8}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{12})`)
 )
@@ -52,12 +50,11 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			client := s.client
-			if client == nil {
-				client = defaultClient
+			if s.client == nil {
+				s.client = detectors.GetHttpClientWithNoLocalAddresses()
 			}
 
-			isVerified, verificationErr := verifyWebhook(ctx, client, resMatch)
+			isVerified, verificationErr := verifyWebhook(ctx, s.client, resMatch)
 			s1.Verified = isVerified
 			s1.SetVerificationError(verificationErr, resMatch)
 		}

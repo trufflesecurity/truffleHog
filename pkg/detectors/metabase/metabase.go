@@ -13,7 +13,8 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-type Scanner struct{
+type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +22,6 @@ type Scanner struct{
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"metabase"}) + `\b([a-zA-Z0-9-]{36})\b`)
 
@@ -61,13 +60,17 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithLocalAddresses()
+				}
+
 				u.Path = "/api/user/current"
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("X-Metabase-Session", resMatch)
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					body, err := io.ReadAll(res.Body)

@@ -23,8 +23,6 @@ var (
 	_ detectors.Detector           = (*Scanner)(nil)
 	_ detectors.EndpointCustomizer = (*Scanner)(nil)
 
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(`\b([a-zA-Z0-9]{73}|\b[a-zA-Z0-9]{64})`)
 	URLPat = regexp.MustCompile(`\b([A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])\.jfrog\.io)`)
@@ -34,13 +32,6 @@ var (
 // Use identifiers in the secret preferably, or the provider name.
 func (s Scanner) Keywords() []string {
 	return []string{"artifactory"}
-}
-
-func (s Scanner) getClient() *http.Client {
-	if s.client != nil {
-		return s.client
-	}
-	return defaultClient
 }
 
 // FromData will find and optionally verify Artifactory secrets in a given set of bytes.
@@ -57,8 +48,6 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	for _, match := range matches {
 		resMatch := strings.TrimSpace(match[1])
 
-		client := s.getClient()
-
 		for _, URL := range s.Endpoints(resURLMatch) {
 			s1 := detectors.Result{
 				DetectorType: detectorspb.DetectorType_ArtifactoryAccessToken,
@@ -67,7 +56,11 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				isVerified, verificationErr := verifyArtifactory(ctx, client, URL, resMatch)
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
+				isVerified, verificationErr := verifyArtifactory(ctx, s.client, URL, resMatch)
 				s1.Verified = isVerified
 				s1.SetVerificationError(verificationErr, resMatch)
 			}

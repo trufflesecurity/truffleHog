@@ -8,6 +8,8 @@ var (
 	SkipAdditionalRefs atomic.Bool
 	EnableAPKHandler   atomic.Bool
 	UserAgentSuffix    AtomicString
+	// NoVerifySsl instructs supported detectors to skip SSL/TLS certificate verification.
+	NoVerifySsl atomic.Bool
 )
 
 type AtomicString struct {

@@ -21,7 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithLocalAddresses
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	endpointPat = regexp.MustCompile(detectors.PrefixRegex([]string{"portainer"}) + `\b(https?:\/\/\S+(:[0-9]{4,5})?)\b`)
 	tokenPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"portainer"}) + `\b(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.[0-9A-Za-z]{50,310}\.[0-9A-Z-a-z\-_]{43})\b`)
@@ -60,16 +59,15 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				client := s.client
-				if client == nil {
-					client = defaultClient
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithLocalAddresses()
 				}
 				req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", resMatch))
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

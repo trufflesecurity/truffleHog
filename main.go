@@ -20,10 +20,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jpillora/overseer"
 	"github.com/mattn/go-isatty"
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/cache/simple"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/verificationcache"
-	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/cleantemp"
@@ -78,6 +79,7 @@ var (
 	includeDetectors     = cli.Flag("include-detectors", "Comma separated list of detector types to include. Protobuf name or IDs may be used, as well as ranges.").Default("all").String()
 	excludeDetectors     = cli.Flag("exclude-detectors", "Comma separated list of detector types to exclude. Protobuf name or IDs may be used, as well as ranges. IDs defined here take precedence over the include list.").String()
 	jobReportFile        = cli.Flag("output-report", "Write a scan report to the provided path.").Hidden().OpenFile(os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	SslVerify            = cli.Flag("ssl-verify", "Whether to verify the SSL certificates when making requests.").Default("true").Bool()
 
 	noVerificationCache = cli.Flag("no-verification-cache", "Disable verification caching").Bool()
 
@@ -283,7 +285,7 @@ func init() {
 
 	cmd = kingpin.MustParse(cli.Parse(os.Args[1:]))
 
-	// Configure logging.
+	// Configure log level.
 	switch {
 	case *trace:
 		log.SetLevel(5)
@@ -303,6 +305,11 @@ func init() {
 		} else {
 			log.SetLevel(l)
 		}
+	}
+
+	// Disable certificate validation, if specified.
+	if !*SslVerify {
+		feature.NoVerifySsl.Store(true)
 	}
 }
 

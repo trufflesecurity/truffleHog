@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	regexp "github.com/wasilibs/go-re2"
 
@@ -14,6 +13,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"fibery"}) + `\b([0-9a-f]{8}.[0-9a-f]{35})\b`)
 	domainPat = regexp.MustCompile(detectors.PrefixRegex([]string{"fibery", "domain"}) + `\b([0-9A-Za-z]{2,40})\b`)
@@ -59,15 +57,17 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				timeout := 10 * time.Second
-				client.Timeout = timeout
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
 				req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("https://%s.fibery.io/api/commands", resDomainMatch), nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("Content-Type", "application/json")
 				req.Header.Add("Authorization", fmt.Sprintf("Token %s", resMatch))
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

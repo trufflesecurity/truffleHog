@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	logContext "github.com/trufflesecurity/trufflehog/v3/pkg/context"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/feature"
 
 	mssql "github.com/microsoft/go-mssqldb"
 )
@@ -69,7 +70,7 @@ func parseSqlServer(ctx logContext.Context, subname string) (jdbc, error) {
 		}
 	}
 
-	urlStr := fmt.Sprintf("sqlserver://sa:%s@%s:%s?database=master&connection+timeout=5", password, host, port)
+	urlStr := fmt.Sprintf("sqlserver://sa:%s@%s:%s?database=master&connection+timeout=5&TrustServerCertificate=%t", password, host, port, !feature.NoVerifySsl.Load())
 	jdbcUrl, err := url.Parse(urlStr)
 	if err != nil {
 		ctx.Logger().WithName("jdbc").

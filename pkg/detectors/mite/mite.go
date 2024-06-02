@@ -13,6 +13,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -20,8 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"mite"}) + `\b([0-9a-z]{16})\b`)
 	urlPat = regexp.MustCompile(`\b([0-9a-z-]{1,}.mite.yo.lk)\b`)
@@ -51,13 +50,17 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
 				req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/account.json", resURL), nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("Content-Type", "application/json")
 				req.Header.Add("X-MiteApiKey", resMatch)
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

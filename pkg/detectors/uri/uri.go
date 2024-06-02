@@ -32,9 +32,6 @@ var _ interface {
 var (
 	keyPat = regexp.MustCompile(`\bhttps?:\/\/[\w!#$%&()*+,\-./;<=>?@[\\\]^_{|}~]{0,50}:([\w!#$%&()*+,\-./:;<=>?[\\\]^_{|}~]{3,50})@[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?[\w/]+\b`)
 
-	// TODO: make local addr opt-out
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	hostNotFoundCache = simple.NewCache[struct{}]()
 )
 
@@ -111,8 +108,9 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				continue
 			}
 
+			// TODO: make local addr opt-out
 			if s.client == nil {
-				s.client = defaultClient
+				s.client = detectors.GetHttpClientWithNoLocalAddresses()
 			}
 			isVerified, vErr := verifyURL(ctx, s.client, parsedURL)
 			r.Verified = isVerified

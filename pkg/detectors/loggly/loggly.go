@@ -21,7 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	domainPat = regexp.MustCompile(`\b([a-zA-Z0-9-]+\.loggly\.com)\b`)
 	keyPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"loggly"}) + `\b([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})\b`)
@@ -54,16 +53,15 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				client := s.client
-				if client == nil {
-					client = defaultClient
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
 				}
 				req, err := http.NewRequestWithContext(ctx, "GET", "https://"+domainRes+"/apiv2/customer", nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", key))
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

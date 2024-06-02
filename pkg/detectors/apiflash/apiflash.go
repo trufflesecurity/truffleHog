@@ -14,6 +14,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +22,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"apiflash"}) + `\b([a-z0-9]{32})\b`)
 
@@ -51,7 +50,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			isVerified, verificationErr := verifyAPIFlash(ctx, client, key)
+			if s.client == nil {
+				s.client = detectors.GetHttpClientWithNoLocalAddresses()
+			}
+			isVerified, verificationErr := verifyAPIFlash(ctx, s.client, key)
 			s1.Verified = isVerified
 			s1.SetVerificationError(verificationErr, key)
 		}

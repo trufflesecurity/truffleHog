@@ -13,7 +13,8 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-type Scanner struct{
+type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +22,6 @@ type Scanner struct{
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	token  = regexp.MustCompile(detectors.PrefixRegex([]string{"zendesk"}) + `([A-Za-z0-9_-]{40})`)
 	email  = regexp.MustCompile(`\b([a-zA-Z-0-9-]{5,16}\@[a-zA-Z-0-9]{4,16}\.[a-zA-Z-0-9]{3,6})\b`)
 	domain = regexp.MustCompile(`\b([a-zA-Z-0-9]{3,16}\.zendesk\.com)\b`)
@@ -58,6 +57,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
+					if s.client == nil {
+						s.client = detectors.GetHttpClientWithNoLocalAddresses()
+					}
+
 					data := fmt.Sprintf("%s/token:%s", resEmail, resMatch)
 					sEnc := b64.StdEncoding.EncodeToString([]byte(data))
 					req, err := http.NewRequestWithContext(ctx, "GET", "https://"+resDomain+"/api/v2/users.json", nil)
@@ -65,7 +68,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 						continue
 					}
 					req.Header.Add("Authorization", fmt.Sprintf("Basic %s", sEnc))
-					res, err := client.Do(req)
+					res, err := s.client.Do(req)
 					if err == nil {
 						defer res.Body.Close()
 						if res.StatusCode >= 200 && res.StatusCode < 300 {

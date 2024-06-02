@@ -13,6 +13,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +22,6 @@ var _ detectors.Detector = (*Scanner)(nil)
 var _ detectors.CustomFalsePositiveChecker = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat    = regexp.MustCompile(`\b(shppa_|shpat_)([0-9A-Fa-f]{32})\b`)
 	domainPat = regexp.MustCompile(`[a-zA-Z0-9-]+\.myshopify\.com`)
@@ -54,12 +53,16 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
 				req, err := http.NewRequestWithContext(ctx, "GET", "https://"+domainRes+"/admin/oauth/access_scopes.json", nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("X-Shopify-Access-Token", key)
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					if res.StatusCode >= 200 && res.StatusCode < 300 {
 						shopifyTokenAccessScopes := shopifyTokenAccessScopes{}

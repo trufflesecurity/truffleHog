@@ -13,6 +13,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -20,8 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives
 	keyPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"kanbantool"}) + `\b([0-9A-Z]{12})\b`)
 	domainPat = regexp.MustCompile(detectors.PrefixRegex([]string{"kanbantool"}) + `\b([a-z0-9A-Z]{2,22})\b`)
@@ -50,13 +49,17 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				Raw:          []byte(resMatch),
 			}
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
 				url := fmt.Sprintf("https://%s.kanbantool.com/api/v3/users/current.json", resIdMatch)
 				req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", resMatch))
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

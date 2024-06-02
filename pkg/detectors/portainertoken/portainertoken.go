@@ -21,7 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithLocalAddresses
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat      = regexp.MustCompile(detectors.PrefixRegex([]string{"portainertoken"}) + `\b(ptr_[A-Za-z0-9\/_\-+=]{20,60})`)
 	endpointPat = regexp.MustCompile(detectors.PrefixRegex([]string{"portainer"}) + `\b(https?:\/\/\S+(:[0-9]{4,5})?)\b`)
@@ -61,9 +60,8 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				client := s.client
-				if client == nil {
-					client = defaultClient
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithLocalAddresses()
 				}
 				req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 				if err != nil {
@@ -72,7 +70,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 
 				req.Header.Add("X-API-Key", resMatch)
 
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 
 				if err == nil {
 					defer res.Body.Close()

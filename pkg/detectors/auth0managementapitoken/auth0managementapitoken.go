@@ -13,6 +13,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +22,6 @@ var _ detectors.Detector = (*Scanner)(nil)
 var _ detectors.MaxSecretSizeProvider = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithLocalAddresses
-
 	// long jwt token but note this is default 8640000 seconds = 24 hours but could be set to maximum 2592000 seconds = 720 hours = 30 days
 	// at https://manage.auth0.com/dashboard/us/dev-63memjo3/apis/management/explorer
 	managementAPITokenPat = regexp.MustCompile(`\b(ey[a-zA-Z0-9._-]+)\b`)
@@ -61,6 +60,9 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithLocalAddresses()
+				}
 				/*
 				   curl -H "Authorization: Bearer $token" https://domain/api/v2/users
 				*/
@@ -70,7 +72,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					continue
 				}
 				req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", managementAPITokenRes))
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {
