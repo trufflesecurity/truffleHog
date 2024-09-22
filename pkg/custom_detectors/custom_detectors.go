@@ -26,6 +26,7 @@ const maxTotalMatches = 100
 // initialization).
 type CustomRegexWebhook struct {
 	*custom_detectorspb.CustomRegex
+	directVerifierCache map[string]bool
 }
 
 // Ensure the Scanner satisfies the interface at compile time.
@@ -54,7 +55,7 @@ func NewWebhookCustomRegex(pb *custom_detectorspb.CustomRegex) (*CustomRegexWebh
 	}
 
 	// TODO: Copy only necessary data out of pb.
-	return &CustomRegexWebhook{pb}, nil
+	return &CustomRegexWebhook{pb, make(map[string]bool)}, nil
 }
 
 var httpClient = common.SaneHttpClient()
@@ -70,7 +71,15 @@ func (c *CustomRegexWebhook) FromData(ctx context.Context, verify bool, data []b
 			// This will only happen if the regex is invalid.
 			return nil, err
 		}
-		regexMatches[name] = regex.FindAllStringSubmatch(dataStr, -1)
+		if c.DirectVerifyEnabled() {
+			// TODO handle this more robustly
+			raw := regex.FindAllStringSubmatch(dataStr, -1)
+			for _, values := range raw {
+				regexMatches[name] = append(regexMatches[name], values[1:])
+			}
+		} else {
+			regexMatches[name] = regex.FindAllStringSubmatch(dataStr, -1)
+		}
 	}
 
 	// Permutate each individual match.
@@ -85,10 +94,13 @@ func (c *CustomRegexWebhook) FromData(ctx context.Context, verify bool, data []b
 	// ]
 	matches := permutateMatches(regexMatches)
 
-	g := new(errgroup.Group)
+	if c.DirectVerifyEnabled() {
+		return c.DirectVerify(ctx, matches)
+	}
 
 	// Create result object and test for verification.
 	resultsCh := make(chan detectors.Result, maxTotalMatches)
+	g := new(errgroup.Group)
 	for _, match := range matches {
 		match := match
 		g.Go(func() error {
@@ -165,6 +177,8 @@ func (c *CustomRegexWebhook) createResults(ctx context.Context, match map[string
 				continue
 			}
 			req.Header.Add(key, strings.TrimLeft(value, "\t\n\v\f\r "))
+			// fmt.Println("key", key, "value", value)
+			// fmt.Println("jsonBody", string(jsonBody))
 		}
 		res, err := httpClient.Do(req)
 		if err != nil {

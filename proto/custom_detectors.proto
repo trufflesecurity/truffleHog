@@ -20,6 +20,9 @@ message CustomRegex {
 message VerifierConfig {
   string endpoint = 1 [(validate.rules).string.uri_ref = true];
   bool unsafe = 2;
-  repeated string headers = 3;
-  repeated string successRanges = 4;
+  string httpMethod = 3;
+  bool directVerify = 4;
+  repeated string headers = 5;
+  repeated string successRanges = 6;
+  repeated string successBodyContains = 7;
 }

@@ -112,7 +112,7 @@ func TestFromData_InvalidRegEx(t *testing.T) {
 			Regex: map[string]string{
 				"test": "!!?(?:?)[a-zA-Z0-9]{32}", // invalid regex
 			},
-		},
+		}, make(map[string]bool),
 	}
 
 	_, err := c.FromData(context.Background(), false, []byte("test"))
