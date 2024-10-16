@@ -2,13 +2,14 @@ package hasura
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
 	regexp "github.com/wasilibs/go-re2"
 
-	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
@@ -21,75 +22,100 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = common.SaneHttpClient()
+	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
-	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"hasura"}) + `\b([0-9a-zA-Z_]{32}|alcht_[0-9a-zA-Z]{30})\b`)
+	domainPat = regexp.MustCompile(`\b([a-zA-Z0-9-]+\.hasura\.app)\b`)
+	keyPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"hasura"}) + `\b([a-zA-Z0-9]{64})\b`)
 )
 
 // Keywords are used for efficiently pre-filtering chunks.
 // Use identifiers in the secret preferably, or the provider name.
 func (s Scanner) Keywords() []string {
-	return []string{"hasura","alcht_"}
+	return []string{"hasura"}
 }
 
 // FromData will find and optionally verify Hasura secrets in a given set of bytes.
 func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
 	dataStr := string(data)
 
-	uniqueMatches := make(map[string]struct{})
-	for _, match := range keyPat.FindAllStringSubmatch(dataStr, -1) {
-		uniqueMatches[match[1]] = struct{}{}
-	}
+	keyMatches := keyPat.FindAllStringSubmatch(dataStr, -1)
+	domainMatches := domainPat.FindAllStringSubmatch(dataStr, -1)
 
-	for match := range uniqueMatches {
-		s1 := detectors.Result{
-			DetectorType: detectorspb.DetectorType_Hasura,
-			Raw:          []byte(match),
+	for _, match := range keyMatches {
+		if len(match) != 2 {
+			continue
 		}
+		key := strings.TrimSpace(match[1])
 
-		if verify {
-			client := s.client
-			if client == nil {
-				client = defaultClient
+		for _, domainMatch := range domainMatches {
+			if len(domainMatch) != 2 {
+				continue
 			}
 
-			isVerified, extraData, verificationErr := verifyMatch(ctx, client, match)
-			s1.Verified = isVerified
-			s1.ExtraData = extraData
-			s1.SetVerificationError(verificationErr, match)
+			domainRes := strings.TrimSpace(domainMatch[1])
+
+			s1 := detectors.Result{
+				DetectorType: detectorspb.DetectorType_Hasura,
+				Raw:          []byte(key),
+				RawV2:        []byte(fmt.Sprintf("%s:%s", domainRes, key)),
+			}
+
+			if verify {
+				client := s.client
+				if client == nil {
+					client = defaultClient
+				}
+
+				data := []byte(`{"query":"query { __schema { types { name } } }"}`)
+				req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("https://%s/v1/graphql", domainRes), strings.NewReader(string(data)))
+				if err != nil {
+					continue
+				}
+				req.Header.Add("Content-Type", "application/json")
+				req.Header.Add("x-hasura-admin-secret", key)
+				res, err := client.Do(req)
+				if err != nil {
+					s1.SetVerificationError(err, key)
+					results = append(results, s1)
+					continue
+				}
+				defer res.Body.Close()
+
+				body, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					s1.SetVerificationError(err, key)
+					results = append(results, s1)
+					continue
+				}
+
+				var response struct {
+					Errors []interface{} `json:"errors"`
+				}
+
+				err = json.Unmarshal(body, &response)
+				if err != nil {
+					s1.SetVerificationError(err, key)
+					results = append(results, s1)
+					continue
+				}
+
+				if res.StatusCode >= 200 && res.StatusCode < 300 && len(response.Errors) == 0 {
+					s1.Verified = true
+				} else {
+					if len(response.Errors) > 0 {
+						err = fmt.Errorf("GraphQL query returned errors")
+					} else {
+						err = fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
+					}
+					s1.SetVerificationError(err, key)
+				}
+			}
+
+			results = append(results, s1)
 		}
-
-		results = append(results, s1)
 	}
 
-	return
-}
-
-func verifyMatch(ctx context.Context, client *http.Client, token string) (bool, map[string]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://eth-mainnet.g.hasura.com/v2/"+token+"/getNFTs/?owner=vitalik.eth", nil)
-	if err != nil {
-		return false, nil, nil
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return false, nil, err
-	}
-	defer func() {
-		_, _ = io.Copy(io.Discard, res.Body)
-		_ = res.Body.Close()
-	}()
-
-	switch res.StatusCode {
-	case http.StatusOK:
-		// If the endpoint returns useful information, we can return it as a map.
-		return true, nil, nil
-	case http.StatusUnauthorized:
-		// The secret is determinately not verified (nothing to do)
-		return false, nil, nil
-	default:
-		return false, nil, fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
-	}
+	return results, nil
 }
 
 func (s Scanner) Type() detectorspb.DetectorType {
@@ -97,5 +123,5 @@ func (s Scanner) Type() detectorspb.DetectorType {
 }
 
 func (s Scanner) Description() string {
-	return "Hasura is a blockchain development platform that provides a suite of tools and services for building and scaling decentralized applications. Hasura API keys can be used to access these services."
+	return "Hasura is an open source engine that provides instant GraphQL APIs over PostgreSQL. Hasura admin secrets can be used to access and manage Hasura projects."
 }
