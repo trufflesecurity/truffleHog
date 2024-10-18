@@ -21,7 +21,7 @@ var (
 	client = common.SaneHttpClient()
 
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
-	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"brandfetch"}) + `\b([0-9A-Za-z]{40})\b`)
+	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"brandfetch"}) + `\b([a-zA-Z0-9=]{44})`)
 )
 
 // Keywords are used for efficiently pre-filtering chunks.
@@ -48,15 +48,13 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			payload := strings.NewReader(`{
-				"domain": "www.example.com"
-				}`)
-			req, err := http.NewRequestWithContext(ctx, "POST", "https://api.brandfetch.io/v1/color", payload)
+			// API upgraded to v2 from v1, new API doc:
+			req, err := http.NewRequestWithContext(ctx, "GET", "https://api.brandfetch.io/v2/brands/google.com", nil)
 			if err != nil {
 				continue
 			}
 			req.Header.Add("Content-Type", "application/json")
-			req.Header.Add("x-api-key", resMatch)
+			req.Header.Add("Authorization", "Bearer "+resMatch)
 			res, err := client.Do(req)
 			if err == nil {
 				defer res.Body.Close()
