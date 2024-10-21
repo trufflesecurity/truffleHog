@@ -483,6 +483,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/onedesk"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/onelogin"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/onepagecrm"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/onepassword"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/onesignal"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/onfleet"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/oopspam"
@@ -1642,6 +1643,7 @@ func DefaultDetectors() []detectors.Detector {
 		meraki.Scanner{},
 		saladcloudapikey.Scanner{},
 		boxoauth.Scanner{},
+		onepassword.Scanner{},
 	}
 
 	// Automatically initialize all detectors that implement

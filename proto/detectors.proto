@@ -1013,6 +1013,7 @@ enum DetectorType {
   SaladCloudApiKey = 1001;
   Box = 1002;
   BoxOauth = 1003;
+  OnePassword = 1004;
 }
 
 message Result {
