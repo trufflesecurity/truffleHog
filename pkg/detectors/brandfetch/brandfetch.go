@@ -48,7 +48,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			// API upgraded to v2 from v1, new API doc:
+			// API upgraded to v2 from v1, new API doc:  https://docs.brandfetch.com/reference/brand-api
 			req, err := http.NewRequestWithContext(ctx, "GET", "https://api.brandfetch.io/v2/brands/google.com", nil)
 			if err != nil {
 				continue
