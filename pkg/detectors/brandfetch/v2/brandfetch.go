@@ -14,9 +14,11 @@ import (
 
 type Scanner struct{}
 
+func (s Scanner) Version() int { return 2 }
+
 // Ensure the Scanner satisfies the interface at compile time.
 var _ detectors.Detector = (*Scanner)(nil)
-
+var _ detectors.Versioner = (*Scanner)(nil)
 var (
 	client = common.SaneHttpClient()
 
