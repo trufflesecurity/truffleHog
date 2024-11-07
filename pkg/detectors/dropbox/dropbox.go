@@ -3,71 +3,98 @@ package dropbox
 import (
 	"context"
 	"fmt"
-	regexp "github.com/wasilibs/go-re2"
+	"io"
 	"net/http"
+
+	regexp "github.com/wasilibs/go-re2"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-type Scanner struct{}
+type Scanner struct{ client *http.Client }
 
 // Ensure the Scanner satisfies the interface at compile time.
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	keyPat = regexp.MustCompile(`\b(sl\.[A-Za-z0-9\-\_]{130,140})\b`)
+	defaultClient = common.SaneHttpClient()
+	// Dropbox API keys typically start with 'sl.u.' followed by a long string of alphanumeric characters.
+	// Based on testing, observed key lengths were around 1309 characters.
+	// However, to account for potential variations in key length, the regex pattern is set to match
+	// keys that are at least 256 characters long after the 'sl.u.' prefix.
+	//
+	// As per Dropbox API documentation:
+	// Access tokens provided by Dropbox should be treated as opaque.
+	// Applications must support variable token size with tokens capable of exceeding 1KB.
+	// For more information on Dropbox API authentication, see: https://www.dropbox.com/developers/documentation/http/documentation
+	keyPat = regexp.MustCompile(`\bsl\.(?:u\.|B)[0-9a-zA-Z_-]{130,}\b`)
 )
 
 // Keywords are used for efficiently pre-filtering chunks.
 // Use identifiers in the secret preferably, or the provider name.
-func (s Scanner) Keywords() []string {
-	return []string{"sl."}
-}
+func (s Scanner) Keywords() []string { return []string{"sl.u.", "sl.B"} }
 
 // FromData will find and optionally verify Dropbox secrets in a given set of bytes.
 func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
-
 	dataStr := string(data)
 
-	matches := keyPat.FindAllStringSubmatch(dataStr, -1)
+	uniqueMatches := make(map[string]struct{})
+	for _, match := range keyPat.FindAllStringSubmatch(dataStr, -1) {
+		uniqueMatches[match[0]] = struct{}{}
+	}
 
-	for _, match := range matches {
-
-		result := detectors.Result{
+	for match := range uniqueMatches {
+		s1 := detectors.Result{
 			DetectorType: detectorspb.DetectorType_Dropbox,
-			Raw:          []byte(match[1]),
+			Raw:          []byte(match),
 		}
 
 		if verify {
-
-			baseURL := "https://api.dropboxapi.com/2/users/get_current_account"
-
-			client := common.SaneHttpClient()
-
-			req, err := http.NewRequestWithContext(ctx, "POST", baseURL, nil)
-			if err != nil {
-				continue
+			client := s.client
+			if client == nil {
+				client = defaultClient
 			}
-			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", match[1]))
-			res, err := client.Do(req)
-			if err == nil {
-				res.Body.Close() // The request body is unused.
 
-				// 200 means good key for get current user
-				// 400 is bad (malformed)
-				// 403 bad scope
-				if res.StatusCode == http.StatusOK {
-					result.Verified = true
-				}
-			}
+			isVerified, verificationErr := verifyMatch(ctx, client, match)
+			s1.Verified = isVerified
+			s1.SetVerificationError(verificationErr, match)
 		}
 
-		results = append(results, result)
+		results = append(results, s1)
 	}
 
 	return
+}
+
+func verifyMatch(ctx context.Context, client *http.Client, token string) (bool, error) {
+	const baseURL = "https://api.dropboxapi.com/2/check/user"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL, nil)
+	if err != nil {
+		return false, nil
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+
+	res, err := client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, res.Body)
+		_ = res.Body.Close()
+	}()
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusUnauthorized:
+		// 401 access token not found
+		// The secret is determinately not verified (nothing to do)
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
+	}
 }
 
 func (s Scanner) Type() detectorspb.DetectorType {
