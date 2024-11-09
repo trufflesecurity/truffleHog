@@ -93,7 +93,8 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/box"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/boxoauth"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/braintreepayments"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/brandfetch"
+	brandfetchV1 "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/brandfetch/v1"
+	brandfetchV2 "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/brandfetch/v2"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/browserstack"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/browshot"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/bscscan"
@@ -1104,7 +1105,6 @@ func DefaultDetectors() []detectors.Detector {
 		alegra.Scanner{},
 		tatumio.Scanner{},
 		deepgram.Scanner{},
-		brandfetch.Scanner{},
 		typeform.Scanner{},
 		fxmarket.Scanner{},
 		ipapi.Scanner{},
@@ -1642,6 +1642,8 @@ func DefaultDetectors() []detectors.Detector {
 		meraki.Scanner{},
 		saladcloudapikey.Scanner{},
 		boxoauth.Scanner{},
+		brandfetchV1.Scanner{},
+		brandfetchV2.Scanner{},
 		apimetrics.Scanner{},
 		captainDataV1.Scanner{},
 		captainDataV2.Scanner{},
