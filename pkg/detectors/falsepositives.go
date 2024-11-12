@@ -181,7 +181,7 @@ func FilterKnownFalsePositives(ctx context.Context, detector Detector, results [
 
 	for _, result := range results {
 		if len(result.Raw) == 0 {
-			ctx.Logger().Error(fmt.Errorf("empty raw"), "invalid result; skipping")
+			ctx.Logger().Error(fmt.Errorf("empty raw"), "Skipping result: invalid")
 			continue
 		}
 
@@ -190,9 +190,11 @@ func FilterKnownFalsePositives(ctx context.Context, detector Detector, results [
 			continue
 		}
 
-		if isFp, _ := isFalsePositive(result); !isFp {
-			filteredResults = append(filteredResults, result)
+		if isFp, reason := isFalsePositive(result); isFp {
+			ctx.Logger().V(4).Info("Skipping result: false positive", "result", string(result.Raw), "reason", reason)
+			continue
 		}
+		filteredResults = append(filteredResults, result)
 	}
 
 	return filteredResults
