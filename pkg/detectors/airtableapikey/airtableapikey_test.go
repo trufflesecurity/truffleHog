@@ -12,9 +12,8 @@ import (
 )
 
 var (
-	validPattern            = "app_pOcv67-Yuztyq / key_Yuztyq-pOcv67"
-	validPersonalKeyPattern = "app_pOcv67-Yuztyq / patWtrafrcg64DP0w.AA1AA2BB3CC4DD5EE6FF7GG8HH9II0JJ1KK2LL3MM4NN5OO6PP7QQ8aaaaaaaaaa"
-	invalidPattern          = "app_pOcv67%Yuztyq/key_Yuztyq*pOcv67"
+	validPattern   = "app_pOcv67-Yuztyq / key_Yuztyq-pOcv67"
+	invalidPattern = "app_pOcv67%Yuztyq/key_Yuztyq*pOcv67"
 )
 
 func TestAirTableApiKey_Pattern(t *testing.T) {
@@ -29,12 +28,15 @@ func TestAirTableApiKey_Pattern(t *testing.T) {
 		{
 			name:  "valid pattern - with key",
 			input: fmt.Sprintf("airtable secrets: %s", validPattern),
-			want:  []string{"key_Yuztyq-pOcv67app_pOcv67-Yuztyq"},
+			want:  []string{"app_pOcv67-Yuztyq:key_Yuztyq-pOcv67"},
 		},
 		{
-			name:  "valid pattern - with personal key",
-			input: fmt.Sprintf("airtable secrets: %s", validPersonalKeyPattern),
-			want:  []string{"patWtrafrcg64DP0w.AA1AA2BB3CC4DD5EE6FF7GG8HH9II0JJ1KK2LL3MM4NN5OO6PP7QQ8aaaaaaaaaaapp_pOcv67-Yuztyq"},
+			name: "valid pattern - with personal key",
+			input: `document.addEventListener('DOMContentLoaded', function () {
+    base = new Airtable({ apiKey: 'patHSL6ZkPWx8Rkva.f0b2c1970c1cd8b5126d04eaf59d9fd500a39736c73bbb3a471fsf7eb3561ec0' }).base('appiiuioD2lBj2DaJ');
+
+   reloadData();`,
+			want: []string{"appiiuioD2lBj2DaJ:patHSL6ZkPWx8Rkva.f0b2c1970c1cd8b5126d04eaf59d9fd500a39736c73bbb3a471fsf7eb3561ec0"},
 		},
 		{
 			name:  "invalid pattern",

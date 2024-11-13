@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	regexp "github.com/wasilibs/go-re2"
+	"io"
 	"net/http"
-	"strings"
+
+	regexp "github.com/wasilibs/go-re2"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
@@ -14,6 +15,8 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
+
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,9 +24,9 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = common.SaneHttpClient()
+	defaultClient = common.SaneHttpClient()
 
-	appPat      = regexp.MustCompile(`(app[a-zA-Z0-9_-]{14})`) // could be part of url
+	appPat      = regexp.MustCompile(`(app[\w-]{14})`) // could be part of url
 	keyPat      = regexp.MustCompile(`\b(key[a-zA-Z0-9_-]{14})\b`)
 	personalPat = regexp.MustCompile(`(\bpat[[:alnum:]]{14}\.[[:alnum:]]{64}\b)`)
 )
@@ -45,63 +48,107 @@ type response struct {
 func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
 	dataStr := string(data)
 
-	appMatches := appPat.FindAllStringSubmatch(dataStr, -1)
-	keyMatches := keyPat.FindAllStringSubmatch(dataStr, -1)
-	personalKeyMatches := personalPat.FindAllStringSubmatch(dataStr, -1)
-
-	if len(keyMatches) == 0 {
-		keyMatches = personalKeyMatches
+	appMatches := make(map[string]struct{})
+	for _, matches := range appPat.FindAllStringSubmatch(dataStr, -1) {
+		appMatches[matches[1]] = struct{}{}
+	}
+	keyMatches := make(map[string]struct{})
+	for _, matches := range keyPat.FindAllStringSubmatch(dataStr, -1) {
+		keyMatches[matches[1]] = struct{}{}
+	}
+	for _, matches := range personalPat.FindAllStringSubmatch(dataStr, -1) {
+		keyMatches[matches[1]] = struct{}{}
 	}
 
-	for _, keyMatch := range keyMatches {
-		if len(keyMatch) != 2 {
-			continue
-		}
+	for keyMatch := range keyMatches {
+		var (
+			r        *detectors.Result
+			appMatch string
+		)
 
-		keyRes := strings.TrimSpace(keyMatch[1])
-
-		for _, appMatch := range appMatches {
-			if len(appMatch) != 2 {
-				continue
-			}
-			appRes := strings.TrimSpace(appMatch[1])
-
-			s1 := detectors.Result{
-				DetectorType: detectorspb.DetectorType_AirtableApiKey,
-				Redacted:     appRes,
-				Raw:          []byte(keyRes),
-				RawV2:        []byte(keyRes + appRes),
-			}
+		for a := range appMatches {
+			appMatch = a
 
 			if verify {
-				req, err := http.NewRequestWithContext(ctx, "GET", "https://api.airtable.com/v0/"+appRes+"/Projects", nil)
-				if err != nil {
-					continue
+				client := s.client
+				if client == nil {
+					client = defaultClient
 				}
-				req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", keyRes))
-				res, err := client.Do(req)
-				if err == nil {
-					defer res.Body.Close()
-					if res.StatusCode >= 200 && res.StatusCode < 300 {
-						s1.Verified = true
-					} else if res.StatusCode == 403 {
-						var resp response
-						if err = json.NewDecoder(res.Body).Decode(&resp); err == nil {
-							// check if the error is due to invalid permissions or model not found
-							if resp.Error.Type == "INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND" {
-								// The key is verified as it works, but the user must enumerate the tables or permissions for the key.
-								s1.Verified = true
-							}
-						}
-					}
+
+				isVerified, verificationErr := verifyMatch(ctx, client, appMatch, keyMatch)
+				if isVerified {
+					r = createResult(appMatch, keyMatch, isVerified, verificationErr)
+					break
 				}
 			}
-
-			results = append(results, s1)
 		}
+
+		if r == nil {
+			if len(appMatches) != 1 {
+				appMatch = ""
+			}
+			r = createResult(appMatch, keyMatch, false, nil)
+		}
+		results = append(results, *r)
 	}
 
 	return results, nil
+}
+
+func createResult(app string, key string, verified bool, err error) *detectors.Result {
+	r := &detectors.Result{
+		DetectorType: detectorspb.DetectorType_AirtableApiKey,
+		Raw:          []byte(key),
+		Redacted:     app,
+		Verified:     verified,
+	}
+
+	if app != "" {
+		r.RawV2 = []byte(fmt.Sprintf(`%s:%s`, app, key))
+	}
+
+	if err != nil {
+		r.SetVerificationError(err, key)
+	}
+	return r
+}
+
+func verifyMatch(ctx context.Context, client *http.Client, app string, key string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.airtable.com/v0/"+app+"/Projects", nil)
+	if err != nil {
+		return false, err
+	}
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", key))
+	res, err := client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, res.Body)
+		_ = res.Body.Close()
+	}()
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusUnauthorized:
+		return false, nil
+	case http.StatusForbidden:
+		var resp response
+		if err = json.NewDecoder(res.Body).Decode(&resp); err != nil {
+			return false, err
+		}
+
+		// check if the error is due to invalid permissions or model not found
+		if resp.Error.Type == "INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND" {
+			// The key is verified as it works, but the user must enumerate the tables or permissions for the key.
+			return true, nil
+		}
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
+	}
 }
 
 func (s Scanner) Type() detectorspb.DetectorType {

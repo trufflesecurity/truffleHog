@@ -290,6 +290,14 @@ func TestUpdateLinkLineNumber(t *testing.T) {
 			want: "https://github.com/coinbase/cbpay-js/issues/181",
 		},
 		{
+			name: "Encode percent",
+			args: args{
+				link:    "https://github.com/coinbase/cbpay-js/blob/abcdefg/folder/%/name",
+				newLine: int64(0),
+			},
+			want: "https://github.com/coinbase/cbpay-js/blob/abcdefg/folder/%25/name",
+		},
+		{
 			name: "Invalid link",
 			args: args{
 				link:    "definitely not a link",

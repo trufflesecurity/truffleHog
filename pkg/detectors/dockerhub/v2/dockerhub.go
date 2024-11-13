@@ -8,9 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	regexp "github.com/wasilibs/go-re2"
-
 	"github.com/golang-jwt/jwt/v4"
+	regexp "github.com/wasilibs/go-re2"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
@@ -31,7 +30,7 @@ var _ detectors.Versioner = (*Scanner)(nil)
 var (
 	// Can use email or username for login.
 	usernamePat = regexp.MustCompile(`(?im)(?:user|usr|-u|id)\S{0,40}?[:=\s]{1,3}[ '"=]?([a-zA-Z0-9]{4,40})\b`)
-	emailPat    = regexp.MustCompile(`(` + common.EmailPattern + `)`)
+	emailPat    = regexp.MustCompile(common.EmailPattern)
 
 	// Can use password or personal access token (PAT) for login, but this scanner will only check for PATs.
 	accessTokenPat = regexp.MustCompile(`\b(dckr_pat_[a-zA-Z0-9_-]{27})(?:[^a-zA-Z0-9_-]|\z)`)

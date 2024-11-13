@@ -174,6 +174,7 @@ var linePattern = regexp.MustCompile(`L\d+`)
 // UpdateLinkLineNumber updates the line number in a repository link.
 // Used post-link generation to refine reported issue locations within large scanned blocks.
 func UpdateLinkLineNumber(ctx context.Context, link string, newLine int64) string {
+	link = strings.Replace(link, "%", "%25", -1)
 	parsedURL, err := url.Parse(link)
 	if err != nil {
 		ctx.Logger().Error(err, "unable to parse link to update line number", "link", link)
