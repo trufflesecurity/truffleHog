@@ -1,120 +1,88 @@
-//go:build detectors
-// +build detectors
-
 package graphcms
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	"github.com/kylelemons/godebug/pretty"
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
-
-	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
 )
 
-func TestGraphCMS_FromChunk(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	testSecrets, err := common.GetSecret(ctx, "trufflehog-testing", "detectors3")
-	if err != nil {
-		t.Fatalf("could not get test secrets from GCP: %s", err)
-	}
-	secret := testSecrets.MustGetField("GRAPHCMS_TOKEN")
-	inactiveSecret := testSecrets.MustGetField("GRAPHCMS_INACTIVE")
-	id := testSecrets.MustGetField("GRAPHCMS_ID")
+var (
+	validPattern = `[{
+		"_id": "1a8d0cca-e1a9-4318-bc2f-f5658ab2dcb5",
+		"name": "GraphCMS",
+		"type": "Detector",
+		"api": true,
+		"authentication_type": "",
+		"verification_url": "https://api.example.com/example",
+		"test_secrets": {
+			"secret": "eyQLdHMLjpK5snSPYf6ZCiXXxQRlie2wMITSkTjuzywCiga696mNUt2k2nEL4mv70CKQD9STxcN@eyr4kx6eWKut5zTR6Ei9o94jSCNWjkjQgYoD1pihdbTrr0sHys5uSHOUtiICAtcgsXjewxjyHvro9JYMClVEiGMQoxRC8d1NKfChOjrSO2unumWMsSMSgoA1KQLlHXd0efLuN94KiA3tjLN2Om8SsvLrk29LTPhaQYMvyx02x4IPjLlcHLqSt7cSVUqOe0uGxyIGyzsT7wx9PT56zbieLhRmO697zwyuiN4LpCccP7PuJB9qjz9AofCvgP8TJNsUZdwqcLFiyYTmZQ66Tn9Vpa1IJIdp2oq6izYegl49PDQtuP60A5O7xS7wV5QnFrkqmQkj7WeDUAtRECfTSgfFuXYLPwfYD7cYkfBRC7I1sdnH5tV1R4YEizugtQR5FhVeXHJJkfa-eNjLX9rUsnUNEJTvHOkiyjPvJkUfYzbJMUEVAjIhzny9V04DfnCh7l1mrVM0s_dpUP4fEmAe5fJjDHOMpvtZar0AByzBRpac9Rih0eWpbrMv7sNXh3d9pRPf-AtzCyKqzQ25_FJ6J6wN2evxXnqV4KhSmRTkaaNra4jsF3Sh8cMVYN-jAV6UBeKdSSLcFpjhlnVD6y59PnxFxbL7lj4UxVql3GpqnuKdd3MjN9OOQW2oqI8fd7_I8-vNwowWIuh4K5J0MbBIHCCgvqvdfPEHv4tBKFaj71zcEiDwOQJNxtL-kU_xTpcij9Rq5gnSRufQo1D932wSEe4NrHjZJhJu5qjtR1VC1dujLotyZvYhlyFJ22Lr2Tj5btj-VNjZeCJuv3QcQwR7mSI23O1e1_ESHnYkq4EMd17EIVWucgGZ1jZxGURTAU2bNJMDYUuramusFKAPtaL9i2uVDMQNukiWQI3fIrkOFguGnsCksOSWx80pu2C7CdvhH2SpF0kVnggTcz5W2AR4HPKu4645wBAY_IoirLUcCeKCjWTRJBH2kanqUCweHHU1qRSHncvYdkm0TRGkjpewoZs6JNpxc0WzClIatcVKOAbak3SKLULu28y5b-eIY_x2vqgYmjVZKsjqiQpJblkrRpJsnj3w0-B",
+			"graphcms_id": "trevo1rp5egljk1vwk83enlti"
+		},
+		"expected_response": "200",
+		"method": "GET",
+		"deprecated": false
+	}]`
+	secret = "eyQLdHMLjpK5snSPYf6ZCiXXxQRlie2wMITSkTjuzywCiga696mNUt2k2nEL4mv70CKQD9STxcN@eyr4kx6eWKut5zTR6Ei9o94jSCNWjkjQgYoD1pihdbTrr0sHys5uSHOUtiICAtcgsXjewxjyHvro9JYMClVEiGMQoxRC8d1NKfChOjrSO2unumWMsSMSgoA1KQLlHXd0efLuN94KiA3tjLN2Om8SsvLrk29LTPhaQYMvyx02x4IPjLlcHLqSt7cSVUqOe0uGxyIGyzsT7wx9PT56zbieLhRmO697zwyuiN4LpCccP7PuJB9qjz9AofCvgP8TJNsUZdwqcLFiyYTmZQ66Tn9Vpa1IJIdp2oq6izYegl49PDQtuP60A5O7xS7wV5QnFrkqmQkj7WeDUAtRECfTSgfFuXYLPwfYD7cYkfBRC7I1sdnH5tV1R4YEizugtQR5FhVeXHJJkfa-eNjLX9rUsnUNEJTvHOkiyjPvJkUfYzbJMUEVAjIhzny9V04DfnCh7l1mrVM0s_dpUP4fEmAe5fJjDHOMpvtZar0AByzBRpac9Rih0eWpbrMv7sNXh3d9pRPf-AtzCyKqzQ25_FJ6J6wN2evxXnqV4KhSmRTkaaNra4jsF3Sh8cMVYN-jAV6UBeKdSSLcFpjhlnVD6y59PnxFxbL7lj4UxVql3GpqnuKdd3MjN9OOQW2oqI8fd7_I8-vNwowWIuh4K5J0MbBIHCCgvqvdfPEHv4tBKFaj71zcEiDwOQJNxtL-kU_xTpcij9Rq5gnSRufQo1D932wSEe4NrHjZJhJu5qjtR1VC1dujLotyZvYhlyFJ22Lr2Tj5btj-VNjZeCJuv3QcQwR7mSI23O1e1_ESHnYkq4EMd17EIVWucgGZ1jZxGURTAU2bNJMDYUuramusFKAPtaL9i2uVDMQNukiWQI3fIrkOFguGnsCksOSWx80pu2C7CdvhH2SpF0kVnggTcz5W2AR4HPKu4645wBAY_IoirLUcCeKCjWTRJBH2kanqUCweHHU1qRSHncvYdkm0TRGkjpewoZs6JNpxc0WzClIatcVKOAbak3SKLULu28y5b-eIY_x2vqgYmjVZKsjqiQpJblkrRpJsnj3w0-B"
+)
 
-	type args struct {
-		ctx    context.Context
-		data   []byte
-		verify bool
-	}
+func TestGraphCMS_Pattern(t *testing.T) {
+	d := Scanner{}
+	ahoCorasickCore := ahocorasick.NewAhoCorasickCore([]detectors.Detector{d})
+
 	tests := []struct {
-		name    string
-		s       Scanner
-		args    args
-		want    []detectors.Result
-		wantErr bool
+		name  string
+		input string
+		want  []string
 	}{
 		{
-			name: "found, verified",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a graphcms secret %s within graphcms %s but verified", secret, id)),
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_GraphCMS,
-					Verified:     true,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "found, unverified",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a graphcms secret Bearer %s within graphcms %s but not valid", inactiveSecret, id)), // the secret would satisfy the regex but not pass validation
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_GraphCMS,
-					Verified:     false,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "not found",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte("You cannot find the secret within"),
-				verify: true,
-			},
-			want:    nil,
-			wantErr: false,
+			name:  "valid pattern",
+			input: validPattern,
+			want:  []string{secret},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := Scanner{}
-			got, err := s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GraphCMS.FromData() error = %v, wantErr %v", err, tt.wantErr)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			matchedDetectors := ahoCorasickCore.FindDetectorMatches([]byte(test.input))
+			if len(matchedDetectors) == 0 {
+				t.Errorf("keywords '%v' not matched by: %s", d.Keywords(), test.input)
 				return
 			}
-			for i := range got {
-				if len(got[i].Raw) == 0 {
-					t.Fatalf("no raw secret present: \n %+v", got[i])
-				}
-				got[i].Raw = nil
-			}
-			if diff := pretty.Compare(got, tt.want); diff != "" {
-				t.Errorf("GraphCMS.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
-			}
-		})
-	}
-}
 
-func BenchmarkFromData(benchmark *testing.B) {
-	ctx := context.Background()
-	s := Scanner{}
-	for name, data := range detectors.MustGetBenchmarkData() {
-		benchmark.Run(name, func(b *testing.B) {
-			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
-				_, err := s.FromData(ctx, false, data)
-				if err != nil {
-					b.Fatal(err)
+			results, err := d.FromData(context.Background(), false, []byte(test.input))
+			if err != nil {
+				t.Errorf("error = %v", err)
+				return
+			}
+
+			if len(results) != len(test.want) {
+				if len(results) == 0 {
+					t.Errorf("did not receive result")
+				} else {
+					t.Errorf("expected %d results, only received %d", len(test.want), len(results))
 				}
+				return
+			}
+
+			actual := make(map[string]struct{}, len(results))
+			for _, r := range results {
+				if len(r.RawV2) > 0 {
+					actual[string(r.RawV2)] = struct{}{}
+				} else {
+					actual[string(r.Raw)] = struct{}{}
+				}
+			}
+			expected := make(map[string]struct{}, len(test.want))
+			for _, v := range test.want {
+				expected[v] = struct{}{}
+			}
+
+			if diff := cmp.Diff(expected, actual); diff != "" {
+				t.Errorf("%s diff: (-want +got)\n%s", test.name, diff)
 			}
 		})
 	}

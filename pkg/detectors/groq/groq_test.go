@@ -2,10 +2,12 @@ package groq
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
-	"testing"
 )
 
 func TestGroq_Pattern(t *testing.T) {

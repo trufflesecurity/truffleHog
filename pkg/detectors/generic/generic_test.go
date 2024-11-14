@@ -1,63 +1,88 @@
-//go:build detectors
-// +build detectors
-
 package generic
 
 import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
 )
 
-func TestGeneric_FromChunk(t *testing.T) {
-	ctx := context.Background()
-	s := New()
+var (
+	validPattern = `[{
+		"_id": "1a8d0cca-e1a9-4318-bc2f-f5658ab2dcb5", // should not be detected as this is a UUID
+		"name": "Generic",
+		"type": "Detector",
+		"api": true,
+		"authentication_type": "",
+		"verification_url": "https://api.example.com/example",
+		"test_secrets": {
+			"secret": "3kJnB7gH9pLqX1ZsV4tUvWxY2aBcD5fGiJkLmN9OpQrStUvWxY1z3bC5eFgH7"
+		},
+		"expected_response": "200",
+		"method": "GET",
+		"deprecated": false,
+		"hexkey": "#ADCc49"
+	}]`
+	secret = "3kJnB7gH9pLqX1ZsV4tUvWxY2aBcD5fGiJkLmN9OpQrStUvWxY1z3bC5eFgH7"
+)
 
-	found := []string{
-		"export CONFIG_SERVICE_PASSWORD=34t98hofi2309pr230",
-		"CONFIG_SERVICE_PASSWORD: 34t98hofi2309pr230",
-		"the secret is 34t98hofi2309pr230", // keyword within distance of cred-looking token
-	}
-	notFound := []string{
-		"export MAGIC_VAR=piggymetrics201925",              // key does not have keyword
-		"export CONFIG_SERVICE_PASSWORD=testcredentials",   // has test, cred
-		"export CONFIG_SERVICE_PASSWORD=password123",       // has pass
-		"export CONFIG_SERVICE_PASSWORD=too-plain",         // no digit
-		"export CONFIG_SERVICE_PASSWORD=abcdefg123",        // known FP
-		"SECRET: mountain422",                              // excluded by word list
-		"secret_guid=3fc0b7f7-da09-4ae7-a9c8-d69824b1819b", // excluded by matcher
-		"secret_issue_key: BLAH-23490",                     // excluded by matcher
+func TestGeneric_Pattern(t *testing.T) {
+	d := Scanner{}
+	ahoCorasickCore := ahocorasick.NewAhoCorasickCore([]detectors.Detector{d})
+
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		{
+			name:  "valid pattern",
+			input: validPattern,
+			want:  []string{secret},
+		},
 	}
 
-	for _, data := range found {
-		got, _ := s.FromData(ctx, false, []byte(data))
-		if len(got) == 0 {
-			t.Errorf("Generic.FromData() expected secret for data: %s", data)
-			return
-		}
-	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			matchedDetectors := ahoCorasickCore.FindDetectorMatches([]byte(test.input))
+			if len(matchedDetectors) == 0 {
+				t.Errorf("keywords '%v' not matched by: %s", d.Keywords(), test.input)
+				return
+			}
 
-	for _, data := range notFound {
-		got, _ := s.FromData(ctx, false, []byte(data))
-		if len(got) != 0 {
-			t.Errorf("Generic.FromData() expected no secret for data: %s", data)
-			return
-		}
-	}
-}
+			results, err := d.FromData(context.Background(), false, []byte(test.input))
+			if err != nil {
+				t.Errorf("error = %v", err)
+				return
+			}
 
-func BenchmarkFromData(benchmark *testing.B) {
-	ctx := context.Background()
-	s := New()
-	for name, data := range detectors.MustGetBenchmarkData() {
-		benchmark.Run(name, func(b *testing.B) {
-			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
-				_, err := s.FromData(ctx, false, data)
-				if err != nil {
-					b.Fatal(err)
+			if len(results) != len(test.want) {
+				if len(results) == 0 {
+					t.Errorf("did not receive result")
+				} else {
+					t.Errorf("expected %d results, only received %d", len(test.want), len(results))
 				}
+				return
+			}
+
+			actual := make(map[string]struct{}, len(results))
+			for _, r := range results {
+				if len(r.RawV2) > 0 {
+					actual[string(r.RawV2)] = struct{}{}
+				} else {
+					actual[string(r.Raw)] = struct{}{}
+				}
+			}
+			expected := make(map[string]struct{}, len(test.want))
+			for _, v := range test.want {
+				expected[v] = struct{}{}
+			}
+
+			if diff := cmp.Diff(expected, actual); diff != "" {
+				t.Errorf("%s diff: (-want +got)\n%s", test.name, diff)
 			}
 		})
 	}

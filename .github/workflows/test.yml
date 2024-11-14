@@ -48,7 +48,7 @@ jobs:
           secret: ${{ secrets.BUILDPULSE_SECRET_ACCESS_KEY }}
           tags: integration
       - name: Annotate test results
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v5
         if: success() || failure() # always run even if the previous step fails
         with:
           report_paths: "tmp/test-results/*.xml"

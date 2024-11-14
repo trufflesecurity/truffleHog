@@ -2,10 +2,12 @@ package github_oauth2
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
-	"testing"
 )
 
 func TestGithubOAuth2_Pattern(t *testing.T) {

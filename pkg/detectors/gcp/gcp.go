@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	regexp "github.com/wasilibs/go-re2"
-
 	"golang.org/x/oauth2/google"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"

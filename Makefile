@@ -22,7 +22,7 @@ check:
 	go vet $(shell go list ./... | grep -v /vendor/)
 
 lint:
-	golangci-lint run --enable bodyclose --enable exportloopref --out-format=colored-line-number --timeout 10m
+	golangci-lint run --enable bodyclose --enable copyloopvar --out-format=colored-line-number --timeout 10m
 
 test-failing:
 	CGO_ENABLED=0 go test -timeout=5m $(shell go list ./... | grep -v /vendor/) | grep FAIL

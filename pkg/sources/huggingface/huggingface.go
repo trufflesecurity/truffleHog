@@ -520,7 +520,6 @@ func (s *Source) scanRepos(ctx context.Context, chunksChan chan *sources.Chunk, 
 	}
 
 	for i, repoURL := range repos {
-		i, repoURL := i, repoURL
 		s.jobPool.Go(func() error {
 			if common.IsDone(ctx) {
 				return nil

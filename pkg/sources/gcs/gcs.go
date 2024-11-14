@@ -265,7 +265,6 @@ func (s *Source) Chunks(ctx context.Context, chunksChan chan *sources.Chunk, _ .
 
 	var wg sync.WaitGroup
 	for obj := range objectCh {
-		obj := obj
 		o, ok := obj.(object)
 		if !ok {
 			ctx.Logger().Error(fmt.Errorf("unexpected object type: %T", obj), "GCS source unexpected object type", "name", s.name)

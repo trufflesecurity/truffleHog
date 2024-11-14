@@ -30,7 +30,6 @@ func TestBufferedFileWriterNewThreshold(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			writer := New(tc.options...)
@@ -74,7 +73,6 @@ func TestBufferedFileWriterString(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			writer := New(WithThreshold(tc.threshold))
@@ -243,7 +241,6 @@ func TestBufferedFileWriterLen(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			writer := New()
@@ -385,7 +382,6 @@ func TestBufferedFileWriterClose(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			writer := New(WithThreshold(threshold))
@@ -566,8 +562,6 @@ func TestBufferedFileWriter_ReadFrom(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

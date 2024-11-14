@@ -91,7 +91,6 @@ func (s *Source) Chunks(ctx context.Context, chunksChan chan *sources.Chunk, _ .
 	scanErrs := sources.NewScanErrors()
 
 	for _, proj := range projects {
-		proj := proj
 		s.jobPool.Go(func() error {
 			builds, err := s.buildsForProject(ctx, proj)
 			if err != nil {

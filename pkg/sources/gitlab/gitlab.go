@@ -614,7 +614,7 @@ func (s *Source) scanRepos(ctx context.Context, chunksChan chan *sources.Chunk) 
 	scanErrs := sources.NewScanErrors()
 
 	for i, repo := range s.repos {
-		i, repoURL := i, repo
+		repoURL := repo
 		s.jobPool.Go(func() error {
 			logger := ctx.Logger().WithValues("repo", repoURL)
 			if common.IsDone(ctx) {

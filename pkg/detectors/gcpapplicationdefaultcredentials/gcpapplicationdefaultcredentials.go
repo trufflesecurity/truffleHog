@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	regexp "github.com/wasilibs/go-re2"
-
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 

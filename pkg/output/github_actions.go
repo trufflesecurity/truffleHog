@@ -18,9 +18,10 @@ type GitHubActionsPrinter struct{ mu sync.Mutex }
 
 func (p *GitHubActionsPrinter) Print(_ context.Context, r *detectors.ResultWithMetadata) error {
 	out := gitHubActionsOutputFormat{
-		DetectorType: r.Result.DetectorType.String(),
-		DecoderType:  r.DecoderType.String(),
-		Verified:     r.Result.Verified,
+		DetectorType:        r.Result.DetectorType.String(),
+		DetectorDescription: r.DetectorDescription,
+		DecoderType:         r.DecoderType.String(),
+		Verified:            r.Result.Verified,
 	}
 
 	meta, err := structToMap(r.SourceMetadata.Data)
@@ -71,9 +72,10 @@ func (p *GitHubActionsPrinter) Print(_ context.Context, r *detectors.ResultWithM
 }
 
 type gitHubActionsOutputFormat struct {
-	DetectorType,
-	DecoderType string
-	Verified  bool
-	StartLine int64
-	Filename  string
+	DetectorType        string
+	DetectorDescription string
+	DecoderType         string
+	Verified            bool
+	StartLine           int64
+	Filename            string
 }

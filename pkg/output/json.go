@@ -37,6 +37,8 @@ func (p *JSONPrinter) Print(_ context.Context, r *detectors.ResultWithMetadata) 
 		DetectorType detectorspb.DetectorType
 		// DetectorName is the string name of the DetectorType.
 		DetectorName string
+		// DetectorDescription is the description of the Detector.
+		DetectorDescription string
 		// DecoderName is the string name of the DecoderType.
 		DecoderName       string
 		Verified          bool
@@ -52,20 +54,21 @@ func (p *JSONPrinter) Print(_ context.Context, r *detectors.ResultWithMetadata) 
 		ExtraData      map[string]string
 		StructuredData *detectorspb.StructuredData
 	}{
-		SourceMetadata:    r.SourceMetadata,
-		SourceID:          r.SourceID,
-		SourceType:        r.SourceType,
-		SourceName:        r.SourceName,
-		DetectorType:      r.DetectorType,
-		DetectorName:      r.DetectorType.String(),
-		DecoderName:       r.DecoderType.String(),
-		Verified:          r.Verified,
-		VerificationError: verificationErr,
-		Raw:               string(r.Raw),
-		RawV2:             string(r.RawV2),
-		Redacted:          r.Redacted,
-		ExtraData:         r.ExtraData,
-		StructuredData:    r.StructuredData,
+		SourceMetadata:      r.SourceMetadata,
+		SourceID:            r.SourceID,
+		SourceType:          r.SourceType,
+		SourceName:          r.SourceName,
+		DetectorType:        r.DetectorType,
+		DetectorName:        r.DetectorType.String(),
+		DetectorDescription: r.DetectorDescription,
+		DecoderName:         r.DecoderType.String(),
+		Verified:            r.Verified,
+		VerificationError:   verificationErr,
+		Raw:                 string(r.Raw),
+		RawV2:               string(r.RawV2),
+		Redacted:            r.Redacted,
+		ExtraData:           r.ExtraData,
+		StructuredData:      r.StructuredData,
 	}
 	out, err := json.Marshal(v)
 	if err != nil {

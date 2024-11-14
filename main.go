@@ -7,6 +7,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runtime"
 	"strconv"
@@ -321,6 +322,17 @@ func main() {
 	}
 }
 
+// Function to check if the commit is valid
+func isValidCommit(commit string) bool {
+	cmd := exec.Command("git", "cat-file", "-t", commit)
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+
+	return strings.TrimSpace(string(output)) == "commit"
+}
+
 func run(state overseer.State) {
 
 	ctx, cancel := context.WithCancelCause(context.Background())
@@ -361,6 +373,9 @@ func run(state overseer.State) {
 	// When setting a base commit, chunks must be scanned in order.
 	if *gitScanSinceCommit != "" {
 		*concurrency = 1
+		if !isValidCommit(*gitScanSinceCommit) {
+			logger.Info("Warning: The provided commit hash appears to be invalid.")
+		}
 	}
 
 	if *profile {

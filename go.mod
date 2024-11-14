@@ -1,8 +1,10 @@
 module github.com/trufflesecurity/trufflehog/v3
 
-go 1.23.0
+go 1.23.1
 
-replace github.com/jpillora/overseer => github.com/trufflesecurity/overseer v1.2.7
+toolchain go1.23.3
+
+replace github.com/jpillora/overseer => github.com/trufflesecurity/overseer v1.2.8
 
 replace github.com/snowflakedb/gosnowflake => github.com/trufflesecurity/gosnowflake v0.0.1
 
@@ -17,7 +19,7 @@ require (
 	cloud.google.com/go/secretmanager v1.14.2
 	cloud.google.com/go/storage v1.46.0
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
-	github.com/AzureAD/microsoft-authentication-library-for-go v1.3.0
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.3.1
 	github.com/BobuSumisu/aho-corasick v1.0.3
 	github.com/TheZeroSlave/zapsentry v1.23.0
 	github.com/adrg/strutil v0.3.1
@@ -81,7 +83,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/sassoftware/go-rpmutils v0.4.0
-	github.com/schollz/progressbar/v3 v3.17.0
+	github.com/schollz/progressbar/v3 v3.17.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3
 	github.com/shuheiktgw/go-travis v0.3.1
@@ -96,18 +98,18 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.34.0
 	github.com/trufflesecurity/disk-buffer-reader v0.2.1
 	github.com/wasilibs/go-re2 v1.7.0
-	github.com/xanzy/go-gitlab v0.112.0
+	github.com/xanzy/go-gitlab v0.113.0
 	github.com/xo/dburl v0.23.2
 	go.mongodb.org/mongo-driver v1.17.1
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.28.0
-	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
-	golang.org/x/net v0.30.0
+	golang.org/x/crypto v0.29.0
+	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
+	golang.org/x/net v0.31.0
 	golang.org/x/oauth2 v0.23.0
-	golang.org/x/sync v0.8.0
-	golang.org/x/text v0.19.0
+	golang.org/x/sync v0.9.0
+	golang.org/x/text v0.20.0
 	google.golang.org/api v0.204.0
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/h2non/gock.v1 v1.1.2
@@ -209,6 +211,7 @@ require (
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
+	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
@@ -286,6 +289,7 @@ require (
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
+	github.com/trufflesecurity/touchfile v0.1.1 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
 	github.com/wasilibs/wazero-helpers v0.0.0-20240620070341-3dff1577cd52 // indirect
@@ -313,11 +317,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
-	golang.org/x/mod v0.21.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	golang.org/x/term v0.25.0 // indirect
+	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/term v0.26.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.26.0 // indirect
+	golang.org/x/tools v0.27.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/genproto v0.0.0-20241021214115-324edc3d5d38 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241015192408-796eee8c2d53 // indirect

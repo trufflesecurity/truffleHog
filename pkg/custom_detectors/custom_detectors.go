@@ -91,7 +91,6 @@ func (c *CustomRegexWebhook) FromData(ctx context.Context, verify bool, data []b
 	// Create result object and test for verification.
 	resultsCh := make(chan detectors.Result, maxTotalMatches)
 	for _, match := range matches {
-		match := match
 		g.Go(func() error {
 			return c.createResults(ctx, match, verify, resultsCh)
 		})

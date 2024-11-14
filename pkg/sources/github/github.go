@@ -629,7 +629,6 @@ func (s *Source) scan(ctx context.Context, reporter sources.ChunkReporter) error
 	s.repos = reposToScan
 
 	for i, repoURL := range s.repos {
-		i, repoURL := i, repoURL
 		s.jobPool.Go(func() error {
 			if common.IsDone(ctx) {
 				return nil

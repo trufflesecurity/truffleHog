@@ -1156,6 +1156,7 @@ func (e *Engine) processResult(
 
 	secret := detectors.CopyMetadata(&data.chunk, res)
 	secret.DecoderType = data.decoder
+	secret.DetectorDescription = data.detector.Detector.Description()
 
 	if !res.Verified && res.Raw != nil {
 		isFp, _ := isFalsePositive(res)

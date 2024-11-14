@@ -1,138 +1,87 @@
-//go:build detectors
-// +build detectors
-
 package github
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	"github.com/kylelemons/godebug/pretty"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
 )
 
-func TestGitHub_FromChunk(t *testing.T) {
-	t.Skip("old tokens no longer valid, and no way to generate new ones")
+var (
+	validPattern = `[{
+		"_id": "1a8d0cca-e1a9-4318-bc2f-f5658ab2dcb5",
+		"name": "Github",
+		"type": "Detector",
+		"api": true,
+		"authentication_type": "",
+		"verification_url": "https://api.example.com/example",
+		"test_secrets": {
+			"github_secret": "abc123def4567890abcdef1234567890abcdef12"
+		},
+		"expected_response": "200",
+		"method": "GET",
+		"deprecated": false
+	}]`
+	secret = "abc123def4567890abcdef1234567890abcdef12"
+)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	testSecrets, err := common.GetSecret(ctx, "trufflehog-testing", "detectors2")
-	if err != nil {
-		t.Fatalf("could not get test secrets from GCP: %s", err)
-	}
-	secret := testSecrets.MustGetField("GITHUB_OLD")
-	secretInactive := testSecrets.MustGetField("GITHUB_OLD_INACTIVE")
-	type args struct {
-		ctx    context.Context
-		data   []byte
-		verify bool
-	}
+func TestGithub_Pattern(t *testing.T) {
+	d := Scanner{}
+	ahoCorasickCore := ahocorasick.NewAhoCorasickCore([]detectors.Detector{d})
+
 	tests := []struct {
-		name    string
-		s       Scanner
-		args    args
-		want    []detectors.Result
-		wantErr bool
+		name  string
+		input string
+		want  []string
 	}{
 		{
-			name: "found, verified",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a github secret %s within", secret)),
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_Github,
-					Verified:     true,
-					ExtraData: map[string]string{
-						"rotation_guide": "https://howtorotate.com/docs/tutorials/github/",
-						"version":        "1",
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "found, unverified",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a github secret %s within", secretInactive)),
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_Github,
-					Verified:     false,
-					ExtraData: map[string]string{
-						"rotation_guide": "https://howtorotate.com/docs/tutorials/github/",
-						"version":        "1",
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "not found url",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte("https://raw.github.com/k/d890e8640f20fba3215ba7be8e0ff145aeb8c17c/include/base64.js"),
-				verify: true,
-			},
-			want:    nil,
-			wantErr: false,
-		},
-		{
-			name: "not found ref",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte("https://github.com/lz4/lz4 @ dccf8826f1d76efcbdc655e63cc04cdbd1123619"),
-				verify: true,
-			},
-			want:    nil,
-			wantErr: false,
+			name:  "valid pattern",
+			input: validPattern,
+			want:  []string{secret},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := Scanner{}
-			got, err := s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GitHub.FromData() error = %v, wantErr %v", err, tt.wantErr)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			matchedDetectors := ahoCorasickCore.FindDetectorMatches([]byte(test.input))
+			if len(matchedDetectors) == 0 {
+				t.Errorf("keywords '%v' not matched by: %s", d.Keywords(), test.input)
 				return
 			}
-			for i := range got {
-				if len(got[i].Raw) == 0 {
-					t.Fatal("no raw secret present")
-				}
-				got[i].Raw = nil
-			}
-			if diff := pretty.Compare(got, tt.want); diff != "" {
-				t.Errorf("GitHub.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
-			}
-		})
-	}
-}
 
-func BenchmarkFromData(benchmark *testing.B) {
-	ctx := context.Background()
-	s := Scanner{}
-	for name, data := range detectors.MustGetBenchmarkData() {
-		benchmark.Run(name, func(b *testing.B) {
-			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
-				_, err := s.FromData(ctx, false, data)
-				if err != nil {
-					b.Fatal(err)
+			results, err := d.FromData(context.Background(), false, []byte(test.input))
+			if err != nil {
+				t.Errorf("error = %v", err)
+				return
+			}
+
+			if len(results) != len(test.want) {
+				if len(results) == 0 {
+					t.Errorf("did not receive result")
+				} else {
+					t.Errorf("expected %d results, only received %d", len(test.want), len(results))
 				}
+				return
+			}
+
+			actual := make(map[string]struct{}, len(results))
+			for _, r := range results {
+				if len(r.RawV2) > 0 {
+					actual[string(r.RawV2)] = struct{}{}
+				} else {
+					actual[string(r.Raw)] = struct{}{}
+				}
+			}
+			expected := make(map[string]struct{}, len(test.want))
+			for _, v := range test.want {
+				expected[v] = struct{}{}
+			}
+
+			if diff := cmp.Diff(expected, actual); diff != "" {
+				t.Errorf("%s diff: (-want +got)\n%s", test.name, diff)
 			}
 		})
 	}

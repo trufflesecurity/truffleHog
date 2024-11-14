@@ -1,7 +1,7 @@
 //go:build detectors
 // +build detectors
 
-package gitlab
+package getresponse
 
 import (
 	"context"
@@ -9,22 +9,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/kylelemons/godebug/pretty"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-// This test ensures gitlab v1 detector does not work on gitlab v2 secrets
-func TestGitlab_FromChunk_WithV2Secrets(t *testing.T) {
+func TestGetresponse_FromChunk(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	testSecrets, err := common.GetSecret(ctx, "trufflehog-testing", "detectors4")
 	if err != nil {
 		t.Fatalf("could not get test secrets from GCP: %s", err)
 	}
-	secret := testSecrets.MustGetField("GITLABV2")
-	secretInactive := testSecrets.MustGetField("GITLABV2_INACTIVE")
+	secret := testSecrets.MustGetField("GETRESPONSE")
+	inactiveSecret := testSecrets.MustGetField("GETRESPONSE_INACTIVE")
 
 	type args struct {
 		ctx    context.Context
@@ -32,33 +32,42 @@ func TestGitlab_FromChunk_WithV2Secrets(t *testing.T) {
 		verify bool
 	}
 	tests := []struct {
-		name                string
-		s                   Scanner
-		args                args
-		want                []detectors.Result
-		wantErr             bool
-		wantVerificationErr bool
+		name    string
+		s       Scanner
+		args    args
+		want    []detectors.Result
+		wantErr bool
 	}{
 		{
-			name: "verified secret, not found",
+			name: "found, verified",
 			s:    Scanner{},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a gitlab secret %s within", secret)),
+				data:   []byte(fmt.Sprintf("You can find a getresponse secret %s within", secret)),
 				verify: true,
 			},
-			want:    nil,
+			want: []detectors.Result{
+				{
+					DetectorType: detectorspb.DetectorType_Getresponse,
+					Verified:     true,
+				},
+			},
 			wantErr: false,
 		},
 		{
-			name: "unverified secret, not found",
+			name: "found, unverified",
 			s:    Scanner{},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a gitlab secret %s within", secretInactive)),
+				data:   []byte(fmt.Sprintf("You can find a getresponse secret %s within but not valid", inactiveSecret)), // the secret would satisfy the regex but not pass validation
 				verify: true,
 			},
-			want:    nil,
+			want: []detectors.Result{
+				{
+					DetectorType: detectorspb.DetectorType_Getresponse,
+					Verified:     false,
+				},
+			},
 			wantErr: false,
 		},
 		{
@@ -75,29 +84,26 @@ func TestGitlab_FromChunk_WithV2Secrets(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
+			s := Scanner{}
+			got, err := s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Gitlab.FromData() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Getresponse.FromData() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			for i := range got {
 				if len(got[i].Raw) == 0 {
-					t.Fatal("no raw secret present")
+					t.Fatalf("no raw secret present: \n %+v", got[i])
 				}
-				if (got[i].VerificationError() != nil) != tt.wantVerificationErr {
-					t.Fatalf(" wantVerificationError = %v, verification error = %v,", tt.wantVerificationErr, got[i].VerificationError())
-				}
-				got[i].AnalysisInfo = nil
+				got[i].Raw = nil
 			}
-			opts := cmpopts.IgnoreFields(detectors.Result{}, "Raw", "verificationError")
-			if diff := cmp.Diff(got, tt.want, opts); diff != "" {
-				t.Errorf("Gitlab.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
+			if diff := pretty.Compare(got, tt.want); diff != "" {
+				t.Errorf("Getresponse.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
 			}
 		})
 	}
 }
 
-func BenchmarkV2FromData(benchmark *testing.B) {
+func BenchmarkFromData(benchmark *testing.B) {
 	ctx := context.Background()
 	s := Scanner{}
 	for name, data := range detectors.MustGetBenchmarkData() {

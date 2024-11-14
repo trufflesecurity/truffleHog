@@ -36,7 +36,6 @@ func TestBufferWriterWrite(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			writer := New()
@@ -72,7 +71,6 @@ func TestBufferWriterReadCloser(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			writer := New()
@@ -136,7 +134,6 @@ func TestBufferWriterString(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			writer := New()

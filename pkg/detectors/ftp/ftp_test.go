@@ -1,165 +1,87 @@
-//go:build detectors
-// +build detectors
-
 package ftp
 
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
 )
 
-func TestFTP_FromChunk(t *testing.T) {
-	type args struct {
-		ctx    context.Context
-		data   []byte
-		verify bool
-	}
+var (
+	validPattern = `[{
+		"_id": "1a8d0cca-e1a9-4318-bc2f-f5658ab2dcb5",
+		"name": "Ftp",
+		"type": "Detector",
+		"api": true,
+		"authentication_type": "",
+		"verification_url": "https://api.example.com/example",
+		"test_secrets": {
+			"secret": "ftp://test:nonprod@ftp-enterprise",
+		},
+		"expected_response": "200",
+		"method": "GET",
+		"deprecated": false
+	}]`
+	secret = "ftp://test:nonprod@ftp-enterprise"
+)
+
+func TestFtp_Pattern(t *testing.T) {
+	d := Scanner{}
+	ahoCorasickCore := ahocorasick.NewAhoCorasickCore([]detectors.Detector{d})
+
 	tests := []struct {
-		name                string
-		s                   Scanner
-		args                args
-		want                []detectors.Result
-		wantErr             bool
-		wantVerificationErr bool
+		name  string
+		input string
+		want  []string
 	}{
 		{
-			name: "bad scheme",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte("file://user:pass@foo.com:123/wh/at/ever"),
-				verify: true,
-			},
-			wantErr: false,
-		},
-		{
-			name: "verified FTP",
-			s:    Scanner{},
-			args: args{
-				ctx: context.Background(),
-				// https://dlptest.com/ftp-test/
-				data:   []byte("ftp://dlpuser:rNrKYTX9g7z3RgJRmxWuGHbeu@ftp.dlptest.com"),
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_FTP,
-					Verified:     true,
-					Redacted:     "ftp://dlpuser:********@ftp.dlptest.com",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "unverified FTP",
-			s:    Scanner{},
-			args: args{
-				ctx: context.Background(),
-				// https://dlptest.com/ftp-test/
-				data:   []byte("ftp://dlpuser:invalid@ftp.dlptest.com"),
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_FTP,
-					Verified:     false,
-					Redacted:     "ftp://dlpuser:********@ftp.dlptest.com",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "bad host",
-			s:    Scanner{},
-			args: args{
-				ctx: context.Background(),
-				// https://dlptest.com/ftp-test/
-				data:   []byte("ftp://dlpuser:rNrKYTX9g7z3RgJRmxWuGHbeu@ftp.dlptest.com.badhost"),
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_FTP,
-					Verified:     false,
-					Redacted:     "ftp://dlpuser:********@ftp.dlptest.com.badhost",
-				},
-			},
-			wantErr:             false,
-			wantVerificationErr: true,
-		},
-		{
-			name: "timeout",
-			s:    Scanner{verificationTimeout: 1 * time.Microsecond},
-			args: args{
-				ctx: context.Background(),
-				// https://dlptest.com/ftp-test/
-				data:   []byte("ftp://dlpuser:rNrKYTX9g7z3RgJRmxWuGHbeu@ftp.dlptest.com"),
-				verify: true,
-			},
-			want: []detectors.Result{
-				{
-					DetectorType: detectorspb.DetectorType_FTP,
-					Verified:     false,
-					Redacted:     "ftp://dlpuser:********@ftp.dlptest.com",
-				},
-			},
-			wantErr:             false,
-			wantVerificationErr: true,
-		},
-		{
-			name: "blocked FP",
-			s:    Scanner{},
-			args: args{
-				ctx:    context.Background(),
-				data:   []byte("ftp://abc:123@ftp.freebsd.org/pub/FreeBSD/doc/tr/articles/explaining-bsd/explaining-bsd_tr.pdf"),
-				verify: true,
-			},
-			wantErr: false,
+			name:  "valid pattern",
+			input: validPattern,
+			want:  []string{secret},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("URI.FromData() error = %v, wantErr %v", err, tt.wantErr)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			matchedDetectors := ahoCorasickCore.FindDetectorMatches([]byte(test.input))
+			if len(matchedDetectors) == 0 {
+				t.Errorf("keywords '%v' not matched by: %s", d.Keywords(), test.input)
 				return
 			}
-			// if os.Getenv("FORCE_PASS_DIFF") == "true" {
-			// 	return
-			// }
-			for i := range got {
-				got[i].Raw = nil
 
-				if (got[i].VerificationError() != nil) != tt.wantVerificationErr {
-					t.Fatalf("wantVerificationError = %v, verification error = %v", tt.wantVerificationErr, got[i].VerificationError())
+			results, err := d.FromData(context.Background(), false, []byte(test.input))
+			if err != nil {
+				t.Errorf("error = %v", err)
+				return
+			}
+
+			if len(results) != len(test.want) {
+				if len(results) == 0 {
+					t.Errorf("did not receive result")
+				} else {
+					t.Errorf("expected %d results, only received %d", len(test.want), len(results))
+				}
+				return
+			}
+
+			actual := make(map[string]struct{}, len(results))
+			for _, r := range results {
+				if len(r.RawV2) > 0 {
+					actual[string(r.RawV2)] = struct{}{}
+				} else {
+					actual[string(r.Raw)] = struct{}{}
 				}
 			}
-			opts := cmpopts.IgnoreFields(detectors.Result{}, "verificationError")
-			if diff := cmp.Diff(got, tt.want, opts); diff != "" {
-				t.Errorf("FTP.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
+			expected := make(map[string]struct{}, len(test.want))
+			for _, v := range test.want {
+				expected[v] = struct{}{}
 			}
-		})
-	}
-}
 
-func BenchmarkFromData(benchmark *testing.B) {
-	ctx := context.Background()
-	s := Scanner{}
-	for name, data := range detectors.MustGetBenchmarkData() {
-		benchmark.Run(name, func(b *testing.B) {
-			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
-				_, err := s.FromData(ctx, false, data)
-				if err != nil {
-					b.Fatal(err)
-				}
+			if diff := cmp.Diff(expected, actual); diff != "" {
+				t.Errorf("%s diff: (-want +got)\n%s", test.name, diff)
 			}
 		})
 	}

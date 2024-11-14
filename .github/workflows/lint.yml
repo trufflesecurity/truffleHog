@@ -28,7 +28,7 @@ jobs:
           # working-directory: somedir
 
           # Optional: golangci-lint command line arguments.
-          args: --enable bodyclose --enable exportloopref --timeout 10m
+          args: --enable bodyclose --enable copyloopvar --timeout 10m
 
           # Optional: if set to true then the action don't cache or restore ~/go/pkg.
           # skip-pkg-cache: true

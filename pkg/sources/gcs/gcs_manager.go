@@ -397,7 +397,6 @@ func (g *gcsManager) enumerate(ctx context.Context, bkts []bucket) (*attributes,
 	}(time.Now())
 
 	for _, bkt := range bkts {
-		bkt := bkt
 		g.workerPool.Go(func() error {
 			// List all the objects in the bucket and calculate attributes.
 			g.setupBktHandle(&bkt)
@@ -466,7 +465,6 @@ func (g *gcsManager) ListObjects(ctx context.Context) (chan io.Reader, error) {
 		gcsErrs := sources.NewScanErrors()
 		for _, bucket := range g.buckets {
 			g.numBuckets++
-			bucket := bucket
 			g.workerPool.Go(func() error {
 				objCh, errCh := g.listBucketObjects(ctx, &bucket)
 				for {

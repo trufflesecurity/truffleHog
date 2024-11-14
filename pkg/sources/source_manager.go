@@ -352,7 +352,6 @@ func (s *SourceManager) runWithUnits(ctx context.Context, source SourceUnitEnumC
 		unitPool.SetLimit(s.concurrentUnits)
 	}
 	for unit := range unitReporter.unitCh {
-		unit := unit
 		chunkReporter := &mgrChunkReporter{
 			unit:    unit,
 			chunkCh: make(chan *Chunk, defaultChannelSize),

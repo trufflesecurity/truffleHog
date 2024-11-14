@@ -29,12 +29,13 @@ type PlainPrinter struct{ mu sync.Mutex }
 
 func (p *PlainPrinter) Print(_ context.Context, r *detectors.ResultWithMetadata) error {
 	out := outputFormat{
-		DetectorType:      r.Result.DetectorType.String(),
-		DecoderType:       r.DecoderType.String(),
-		Verified:          r.Result.Verified,
-		VerificationError: r.Result.VerificationError(),
-		MetaData:          r.SourceMetadata,
-		Raw:               strings.TrimSpace(string(r.Result.Raw)),
+		DetectorType:        r.Result.DetectorType.String(),
+		DecoderType:         r.DecoderType.String(),
+		Verified:            r.Result.Verified,
+		VerificationError:   r.Result.VerificationError(),
+		MetaData:            r.SourceMetadata,
+		Raw:                 strings.TrimSpace(string(r.Result.Raw)),
+		DetectorDescription: r.DetectorDescription,
 	}
 
 	meta, err := structToMap(out.MetaData.Data)
@@ -115,4 +116,5 @@ type outputFormat struct {
 	VerificationError error
 	Raw               string
 	*source_metadatapb.MetaData
+	DetectorDescription string
 }
