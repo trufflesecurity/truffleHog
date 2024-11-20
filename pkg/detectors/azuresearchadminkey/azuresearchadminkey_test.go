@@ -10,19 +10,6 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
 )
 
-var (
-	validPattern = `
-	azure:
-		azureKey: wRRPyhjv8m6JGRujUUrPKa8d3rJ0mrGAxhmqf3A68OgZmlWUJyma
-		azureService: TestingService01
-	`
-	invalidPattern = `
-	azure:
-		Key: wRRPyhjv8m6JGRujUUr-PK#a8d3rJ0mrGAxhmqf3A68OgZmlWUJyma
-		Service: TS01
-	`
-)
-
 func TestAzureSearchAdminKey_Pattern(t *testing.T) {
 	d := Scanner{}
 	ahoCorasickCore := ahocorasick.NewAhoCorasickCore([]detectors.Detector{d})
@@ -33,14 +20,44 @@ func TestAzureSearchAdminKey_Pattern(t *testing.T) {
 		want  []string
 	}{
 		{
-			name:  "valid pattern",
-			input: validPattern,
-			want:  []string{"wRRPyhjv8m6JGRujUUrPKa8d3rJ0mrGAxhmqf3A68OgZmlWUJymaTestingService01", "wRRPyhjv8m6JGRujUUrPKa8d3rJ0mrGAxhmqf3A68OgZmlWUJymaazureKey"},
+			name: "valid pattern",
+			input: `
+	azure:
+		azureKey: wRRPyhjv8m6JGRujUUrPKa8d3rJ0mrGAxhmqf3A68OgZmlWUJyma
+		azureService: testingservice01.search.windows.net
+	`,
+			want: []string{`{"service":"testingservice01","key":"wRRPyhjv8m6JGRujUUrPKa8d3rJ0mrGAxhmqf3A68OgZmlWUJyma"}`},
 		},
 		{
-			name:  "invalid pattern",
-			input: invalidPattern,
-			want:  nil,
+			name: "jupyter notebook",
+			input: `
+    {
+      "cell_type": "code",
+      "execution_count": 7,
+      "id": "b188568f",
+      "metadata": {},
+      "outputs": [
+        {
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "https://news-search.search.windows.net azureblob-index 2021-04-30-Preview iOExxhJ2A2wjdAGTjsMxASsJj3y3zUR54kjNTNpW9hAzSeD8PE3k\n"
+          ]
+        }
+      ],
+      "source": [
+        "print(os.getenv(\"AZURE_COGNITIVE_SEARCH_ENDPOINT\"), os.getenv('AZURE_COGNITIVE_SEARCH_INDEX_NAME'), os.getenv('AZURE_COGNITIVE_SEARCH_API_VERSION'), os.getenv(\"AZURE_COGNITIVE_SEARCH_KEY\"))"
+      ]`,
+			want: []string{`{"service":"news-search","key":"iOExxhJ2A2wjdAGTjsMxASsJj3y3zUR54kjNTNpW9hAzSeD8PE3k"}`},
+		},
+		{
+			name: "invalid pattern",
+			input: `
+	azure:
+		Key: wRRPyhjv8m6JGRujUUr-PK#a8d3rJ0mrGAxhmqf3A68OgZmlWUJyma
+		Service: TS01.search.windows.net
+	`,
+			want: nil,
 		},
 	}
 

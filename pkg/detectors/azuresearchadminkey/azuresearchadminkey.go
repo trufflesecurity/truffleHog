@@ -3,8 +3,8 @@ package azuresearchadminkey
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
-	"strings"
 
 	regexp "github.com/wasilibs/go-re2"
 
@@ -23,67 +23,15 @@ var _ detectors.Detector = (*Scanner)(nil)
 
 var (
 	defaultClient = common.SaneHttpClient()
-	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
-	keyPat     = regexp.MustCompile(detectors.PrefixRegex([]string{"azure"}) + `\b([0-9a-zA-Z]{52})\b`)
-	servicePat = regexp.MustCompile(detectors.PrefixRegex([]string{"azure"}) + `\b([0-9a-zA-Z]{7,40})\b`)
+
+	servicePat = regexp.MustCompile(`\b([a-z0-9][a-z0-9-]{5,58}[a-z0-9])\.search\.windows\.net`)
+	keyPat     = regexp.MustCompile(detectors.PrefixRegex([]string{"azure", "windows.net"}) + `\b([a-zA-Z0-9]{52})\b`)
 )
 
 // Keywords are used for efficiently pre-filtering chunks.
 // Use identifiers in the secret preferably, or the provider name.
 func (s Scanner) Keywords() []string {
-	return []string{"azure"}
-}
-
-// FromData will find and optionally verify AzureSearchAdminKey secrets in a given set of bytes.
-func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
-	dataStr := string(data)
-
-	matches := keyPat.FindAllStringSubmatch(dataStr, -1)
-	serviceMatches := servicePat.FindAllStringSubmatch(dataStr, -1)
-
-	for _, match := range matches {
-		resMatch := strings.TrimSpace(match[1])
-		for _, serviceMatch := range serviceMatches {
-			resServiceMatch := strings.TrimSpace(serviceMatch[1])
-
-			s1 := detectors.Result{
-				DetectorType: detectorspb.DetectorType_AzureSearchAdminKey,
-				Raw:          []byte(resMatch),
-				RawV2:        []byte(resMatch + resServiceMatch),
-			}
-
-			if verify {
-				client := s.client
-				if client == nil {
-					client = defaultClient
-				}
-				req, err := http.NewRequestWithContext(ctx, "GET", "https://"+resServiceMatch+".search.windows.net/servicestats?api-version=2023-10-01-Preview", nil)
-				if err != nil {
-					continue
-				}
-				req.Header.Add("api-key", resMatch)
-
-				res, err := client.Do(req)
-				if err == nil {
-					defer res.Body.Close()
-					if res.StatusCode >= 200 && res.StatusCode < 300 {
-						s1.Verified = true
-					} else if res.StatusCode == 401 || res.StatusCode == 403 {
-						// The secret is determinately not verified (nothing to do)
-					} else {
-						err = fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
-						s1.SetVerificationError(err, resMatch)
-					}
-				} else {
-					s1.SetVerificationError(err, resMatch)
-				}
-			}
-
-			results = append(results, s1)
-		}
-	}
-
-	return results, nil
+	return []string{"search.windows.net"}
 }
 
 func (s Scanner) Type() detectorspb.DetectorType {
@@ -92,4 +40,78 @@ func (s Scanner) Type() detectorspb.DetectorType {
 
 func (s Scanner) Description() string {
 	return "Azure Search is a search-as-a-service solution that allows developers to incorporate search capabilities into their applications. Azure Search Admin Keys can be used to manage and query search services."
+}
+
+// FromData will find and optionally verify AzureSearchAdminKey secrets in a given set of bytes.
+func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
+	dataStr := string(data)
+
+	// Deduplicate results.
+	serviceMatches := make(map[string]struct{})
+	for _, matches := range servicePat.FindAllStringSubmatch(dataStr, -1) {
+		serviceMatches[matches[1]] = struct{}{}
+	}
+	keyMatches := make(map[string]struct{})
+	for _, matches := range keyPat.FindAllStringSubmatch(dataStr, -1) {
+		k := matches[1]
+		if detectors.StringShannonEntropy(k) < 4 {
+			continue
+		}
+		keyMatches[k] = struct{}{}
+	}
+
+	for key := range keyMatches {
+		for service := range serviceMatches {
+			r := detectors.Result{
+				DetectorType: detectorspb.DetectorType_AzureSearchAdminKey,
+				Raw:          []byte(key),
+				RawV2:        []byte(`{"service":"` + service + `","key":"` + key + `"}`),
+			}
+
+			if verify {
+				client := s.client
+				if client == nil {
+					client = defaultClient
+				}
+
+				isVerified, verificationErr := verifyMatch(ctx, client, service, key)
+				r.Verified = isVerified
+				r.SetVerificationError(verificationErr, key)
+			}
+
+			results = append(results, r)
+			if r.Verified {
+				break
+			}
+		}
+	}
+
+	return results, nil
+}
+
+func verifyMatch(ctx context.Context, client *http.Client, service string, key string) (bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+service+".search.windows.net/servicestats?api-version=2023-10-01-Preview", nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("api-key", key)
+
+	res, err := client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, res.Body)
+		_ = res.Body.Close()
+	}()
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusUnauthorized, http.StatusForbidden:
+		// The secret is determinately not verified.
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
+	}
 }
