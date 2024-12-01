@@ -18,7 +18,7 @@ var _ Decoder = (*EscapedUnicode)(nil)
 // https://dencode.com/en/string/unicode-escape
 var (
 	// Standard Unicode notation.
-	//https://unicode.org/standard/principles.html
+	// https://unicode.org/standard/principles.html
 	codePointPat = regexp.MustCompile(`\bU\+([a-fA-F0-9]{4}).?`)
 
 	// Common escape sequence used in programming languages.
