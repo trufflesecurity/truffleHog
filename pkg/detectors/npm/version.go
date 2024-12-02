@@ -21,8 +21,15 @@ const (
 	 * Example: `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`
 	 */
 	TokenNew
+	/*
+	 * TokenGeneric: tokens used by third-party registry implementations (e.g., Artifactory, GitHub Artifacts).
+	 *
+	 * Examples:
+	 * ```
+	 * ```
+	 */
+	TokenGeneric
 	// TODO: these are placeholders for future development.
-	// TokenGeneric
 	// https://yarnpkg.com/configuration/yarnrc#npmRegistries
 	// TokenYarn
 	// https://forum.unity.com/threads/npm-registry-authentication.836308/

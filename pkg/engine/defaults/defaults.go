@@ -479,6 +479,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/noticeable"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/notion"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/nozbeteams"
+	npm_token_generic "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npm/token/generic"
 	npm_token_new "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npm/token/new"
 	npm_token_uuid "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npm/token/uuid"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/nugetapikey"
@@ -1322,6 +1323,7 @@ func buildDetectorList() []detectors.Detector {
 		&noticeable.Scanner{},
 		&notion.Scanner{},
 		&nozbeteams.Scanner{},
+		&npm_token_generic.Scanner{},
 		&npm_token_new.Scanner{},
 		&npm_token_uuid.Scanner{},
 		&nugetapikey.Scanner{},

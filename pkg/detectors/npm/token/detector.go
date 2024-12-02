@@ -43,6 +43,7 @@ func (s BaseScanner) VerifyToken(
 	ctx context.Context,
 	data string,
 	token string,
+	includeDefaultRegistry bool,
 ) (bool, map[string]string, error) {
 	logger := ctx.Logger().WithName("npm")
 	if s.client == nil {
@@ -59,7 +60,7 @@ func (s BaseScanner) VerifyToken(
 	} else {
 		// A high confidence match was not found.
 		// Attempt to verify the token against any registries we can find.
-		for uri, info := range registry.FindAllURLs(ctx, data, true) {
+		for uri, info := range registry.FindAllURLs(ctx, data, includeDefaultRegistry) {
 			registries[uri] = info
 		}
 		logger.V(4).Info("Found low-confidence matches for token", "token", token, "registries", maps.Keys(registries))

@@ -30,7 +30,7 @@ func (s Scanner) Keywords() []string {
 	return []string{"npm", "NpmToken.", "_authToken"}
 }
 
-var tokenPat = regexp.MustCompile(`(?:NpmToken\.|` + detectors.PrefixRegex([]string{"npm"}) + `)\b(?i)([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b`)
+var TokenPat = regexp.MustCompile(`(?:NpmToken\.|` + detectors.PrefixRegex([]string{"npm"}) + `)\b(?i)([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b`)
 
 func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
 	dataStr := string(data)
@@ -38,7 +38,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 
 	// Deduplicate results for more efficient handling.
 	tokens := make(map[string]struct{})
-	for _, match := range tokenPat.FindAllStringSubmatch(dataStr, -1) {
+	for _, match := range TokenPat.FindAllStringSubmatch(dataStr, -1) {
 		m := match[1]
 		if detectors.StringShannonEntropy(m) < 3 {
 			continue
@@ -54,7 +54,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			verified, extraData, vErr := s.VerifyToken(logCtx, dataStr, t)
+			verified, extraData, vErr := s.VerifyToken(logCtx, dataStr, t, true)
 			r.Verified = verified
 			r.ExtraData = extraData
 			if vErr != nil {
