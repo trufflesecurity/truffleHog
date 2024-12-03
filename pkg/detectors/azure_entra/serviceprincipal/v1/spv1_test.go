@@ -13,10 +13,23 @@ type testCase struct {
 
 func Test_FindClientSecretMatches(t *testing.T) {
 	cases := map[string]testCase{
+		// secret
+		`secret`: {
+			Input:    `"secret": "ljjK-62Q5bJbm43xU5At-NdeWDrhIO_28~",`,
+			Expected: map[string]struct{}{"ljjK-62Q5bJbm43xU5At-NdeWDrhIO_28~": {}},
+		},
+
+		// client secret
 		"client_secret": {
 			Input: `    "TenantId": "3d7e0652-b03d-4ed2-bf86-f1299cecde17",
     "ClientSecret": "gHduiL_j6t4b6DG?Qr-G6M@IOS?mX3B9",`,
 			Expected: map[string]struct{}{"gHduiL_j6t4b6DG?Qr-G6M@IOS?mX3B9": {}},
+		},
+		"client secret at end": {
+			Input: `secret: UAByAGkAbQBhAHIAeQAgAEsAZQB5AA==`,
+			Expected: map[string]struct{}{
+				"UAByAGkAbQBhAHIAeQAgAEsAZQB5AA==": {},
+			},
 		},
 		"client_secret1": {
 			Input: `   public static string clientId = "413ff05b-6d54-41a7-9271-9f964bc10624";
@@ -72,10 +85,21 @@ configs = {"fs.azure.account.auth.type": "OAuth"`,
 			Input:    ` "AZUREAD-AKS-APPID-SECRET": "8w__IGsaY.6g6jUxb1.pPGK262._pgX.q-",`,
 			Expected: map[string]struct{}{"8w__IGsaY.6g6jUxb1.pPGK262._pgX.q-": {}},
 		},
-		// "client_secret6": {
-		//	Input:    ``,
-		//	Expected: map[string]struct{}{"": {}},
-		// },
+		"client_secret9": {
+			Input: `      client-id: 49abd816-45d1-479a-b49a-80bcf6d7213a
+      client-secret: 7.18gt1b2wO-t.~Cf.mlZCyHC7r_micnuO`,
+			Expected: map[string]struct{}{"7.18gt1b2wO-t.~Cf.mlZCyHC7r_micnuO": {}},
+		},
+		"client_secret10": {
+			Input:    `    "aadClientSecret": "6p3t93TJzPgsNtQISqWc.-@?GCz9-ZWo",`,
+			Expected: map[string]struct{}{"6p3t93TJzPgsNtQISqWc.-@?GCz9-ZWo": {}},
+		},
+		"client_secret11": {
+			Input: `CLIENT_ID=9f5a8591-20b9-46b3-8317-9cc2cd52ca76
+CLIENT_SECRET=2XlwmIlo3XkjE1@y[cuWsPj3_N@F23F/
+TENANT_ID=08c43a10-b16a-426e-b7e8-b3b42a60e181`,
+			Expected: map[string]struct{}{"2XlwmIlo3XkjE1@y[cuWsPj3_N@F23F/": {}},
+		},
 
 		"password": {
 			Input: `# Login using Service Principal
@@ -86,18 +110,30 @@ $Credential = New-Object -TypeName System.Management.Automation.PSCredential -Ar
 		},
 
 		// False positives
-		"placeholder_secret": {
+		"invalid - placeholder_secret": {
 			Input: `- Log in with a service principal using a client secret:
 
 az login --service-principal --username {{http://azure-cli-service-principal}} --password {{secret}} --tenant {{someone.onmicrosoft.com}}`,
-			Expected: nil,
 		},
-		// "client_secret3": {
-		//	Input: ``,
-		//	Expected: map[string]struct{}{
-		//		"": {},
-		//	},
-		// },
+
+		"invalid -  only alpha characters": {
+			Input: `"passwordCredentials":[],"preferredTokenSigningKeyThumbprint":null,"publisherName":"Microsoft"`,
+		},
+		"invalid - low entropy": {
+			Input: `clientSecret: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`,
+		},
+		"invalid - passwordCredentials1": {
+			Input: `"passwordCredentials":[{"customKeyIdentifier":"UAByAGkAbQBhAHIAeQAgAEsAZQB5AA==","endDate":"2019-07-16T23:01:19.028Z","keyId":`,
+		},
+		"invalid - passwordCredentials2": {
+			Input: `"passwordCredentials":[{"customKeyIdentifier":"TQB5ACAARgBpAHIAcwB0ACAASwBlAHkA"`,
+		},
+		"invalid - passwordCredentials3": {
+			Input: `,"passwordCredentials":[{"customKeyIdentifier":"awBlAHkAZgBvAHIAaQBtAHAAYQBsAGEA",`,
+		},
+		"invalid - azure vault path": {
+			Input: `        public const string MsalArlingtonOBOKeyVaultUri = "https://msidlabs.vault.azure.net:443/secrets/ARLMSIDLAB1-IDLASBS-App-CC-Secret";`,
+		},
 	}
 
 	for name, test := range cases {

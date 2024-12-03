@@ -89,7 +89,7 @@ func VerifyCredentials(ctx context.Context, client *http.Client, tenantId string
 	if err := json.NewDecoder(res.Body).Decode(&errResp); err != nil {
 		return false, nil, err
 	}
-
+	
 	switch res.StatusCode {
 	case http.StatusBadRequest, http.StatusUnauthorized:
 		// Error codes can be looked up by removing the `AADSTS` prefix.
