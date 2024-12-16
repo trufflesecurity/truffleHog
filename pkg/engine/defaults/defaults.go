@@ -899,7 +899,7 @@ func buildDetectorList() []detectors.Detector {
 		&azure_entra_serviceprincipal_v2.Scanner{},
 		&azure_batch.Scanner{},
 		&azurecontainerregistry.Scanner{},
-		&azuredevopspersonalaccesstoken.Scanner{},
+		&azure_devops.Scanner{},
 		// &azurefunctionkey.Scanner{}, // detector is throwing some FPs
 		&azure_openai.Scanner{},
 		&azuresearchadminkey.Scanner{},
