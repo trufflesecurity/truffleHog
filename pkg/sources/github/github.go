@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/gobwas/glob"
 	"github.com/google/go-github/v67/github"
 	"golang.org/x/sync/errgroup"
@@ -225,7 +226,7 @@ func (s *Source) Init(aCtx context.Context, name string, jobID sources.JobID, so
 	}
 	s.conn = &conn
 
-	connector, err := newConnector(s)
+	connector, err := newConnector(aCtx, s)
 	if err != nil {
 		return fmt.Errorf("could not create connector: %w", err)
 	}
@@ -611,16 +612,6 @@ func (s *Source) enumerateWithApp(ctx context.Context, installationClient *githu
 	}
 
 	return nil
-}
-
-func createGitHubClient(httpClient *http.Client, apiEndpoint string) (*github.Client, error) {
-	// If we're using public GitHub, make a regular client.
-	// Otherwise, make an enterprise client.
-	if strings.EqualFold(apiEndpoint, cloudEndpoint) {
-		return github.NewClient(httpClient), nil
-	}
-
-	return github.NewClient(httpClient).WithEnterpriseURLs(apiEndpoint, apiEndpoint)
 }
 
 func (s *Source) scan(ctx context.Context, reporter sources.ChunkReporter) error {
@@ -1573,4 +1564,9 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 		return err
 	}
 	return s.scanRepo(ctx, repoURL, reporter)
+}
+
+// getLogger returns a named logger: `trufflehog.s.github`.
+func getLogger(ctx context.Context) logr.Logger {
+	return ctx.Logger().WithName("s.github") // short-hand for `sources.github`.
 }
