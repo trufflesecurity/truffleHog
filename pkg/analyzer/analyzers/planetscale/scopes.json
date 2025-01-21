@@ -1,0 +1,90 @@
+{
+    "organization_scopes": [
+        {
+            "name": "read_organization",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "read_invoices",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/invoices",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "read_databases",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "read_audit_logs",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/audit-log",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "create_databases",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "read_oauth_applications",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/oauth-applications",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        }
+    ],
+    "oauth_application_scopes": [
+        {
+            "name": "write_oauth_tokens",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/oauth-applications/%s/token",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "read_oauth_tokens",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/oauth-applications/%s/tokens",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        }
+    ],
+    "database_scopes": [
+        {
+            "name": "read_database",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        }
+    ]
+    
+}

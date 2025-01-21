@@ -1,0 +1,9 @@
+permissions:
+ - read_organization
+ - read_invoices
+ - read_databases
+ - read_audit_logs
+ - create_databases
+ - read_oauth_applications
+ - write_oauth_tokens
+ - read_oauth_tokens
