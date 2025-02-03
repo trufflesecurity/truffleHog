@@ -68,6 +68,17 @@ func New(c common.Common, keyType string) *AnalyzeForm {
 			Required:    true,
 			RedactInput: true,
 		}}
+	case "planetscale":
+		inputs = []textinputs.InputConfig{{
+			Label:    "Service Id",
+			Key:      "id",
+			Required: true,
+		}, {
+			Label:       "Service Token",
+			Key:         "token",
+			Required:    true,
+			RedactInput: true,
+		}}
 	default:
 		inputs = []textinputs.InputConfig{{
 			Label:       "Secret",

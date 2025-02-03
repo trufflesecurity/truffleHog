@@ -32,7 +32,7 @@ func (a Analyzer) Analyze(_ context.Context, credInfo map[string]string) (*analy
 	if !ok {
 		return nil, errors.New("missing id in credInfo")
 	}
-	key, ok := credInfo["key"]
+	key, ok := credInfo["token"]
 	if !ok {
 		return nil, errors.New("missing key in credInfo")
 	}
@@ -54,12 +54,9 @@ func secretInfoToAnalyzerResult(info *SecretInfo) *analyzers.AnalyzerResult {
 	}
 
 	resource := analyzers.Resource{
-		Name:               info.Organization,
-		FullyQualifiedName: info.Organization,
+		Name:               info.OrgName,
+		FullyQualifiedName: info.OrgName,
 		Type:               "Organization",
-		Metadata: map[string]any{
-			"expires": "never",
-		},
 	}
 
 	for idx, permission := range info.Permissions {
@@ -185,43 +182,42 @@ func contains(s []string, e string) bool {
 }
 
 type SecretInfo struct {
-	Organization string
-	Permissions  []string
+	OrgName     string
+	Permissions []string
 }
 
-func AnalyzeAndPrintPermissions(cfg *config.Config, id, key string) {
-	info, err := AnalyzePermissions(cfg, id, key)
+func AnalyzeAndPrintPermissions(cfg *config.Config, id, token string) {
+	info, err := AnalyzePermissions(cfg, id, token)
 	if err != nil {
 		color.Red("[x] Error : %s", err.Error())
 		return
 	}
 
 	color.Green("[!] Valid PlanetScale credentials\n\n")
-	color.Green("[i] Organization: %s", info.Organization)
+	color.Green("[i] Organization: %s", info.OrgName)
 	printPermissions(info.Permissions)
-	color.Yellow("\n[i] Expires: Never")
 
 }
 
-func AnalyzePermissions(cfg *config.Config, id, key string) (*SecretInfo, error) {
+func AnalyzePermissions(cfg *config.Config, id, token string) (*SecretInfo, error) {
 	var info = &SecretInfo{}
 
-	organization, err := getOrganization(cfg, id, key)
-	if err != nil {
-		return nil, fmt.Errorf("getting organization: %w", err)
-	}
-
-	permissions, err := checkPermissions(cfg, id, key, organization)
+	orgName, err := getOrganizationName(cfg, id, token)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(permissions) == 0 {
-		return nil, fmt.Errorf("invalid PlanetScale credentials")
+	permissions, err := checkPermissions(cfg, id, token, orgName)
+	if err != nil {
+		return nil, err
 	}
 
+	// if len(permissions) == 0 {
+	// 	return nil, fmt.Errorf("invalid credentials")
+	// }
+
 	info.Permissions = permissions
-	info.Organization = organization
+	info.OrgName = orgName
 
 	return info, nil
 }
@@ -232,7 +228,7 @@ type organizationJSON struct {
 	} `json:"data"`
 }
 
-func getOrganization(cfg *config.Config, id, key string) (string, error) {
+func getOrganizationName(cfg *config.Config, id, key string) (string, error) {
 	url := "https://api.planetscale.com/v1/organizations"
 
 	client := analyzers.NewAnalyzeClient(cfg)
@@ -251,28 +247,38 @@ func getOrganization(cfg *config.Config, id, key string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	// Check response status code
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Decode response body
+		var organizationJSON organizationJSON
+		err = json.NewDecoder(resp.Body).Decode(&organizationJSON)
+		if err != nil {
+			return "", err
+		}
+
+		return organizationJSON.Data[0].Name, nil
+	case http.StatusUnauthorized:
 		return "", fmt.Errorf("invalid credentials")
+	default:
+		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
-	// Decode response body
-	var organizationJSON organizationJSON
-	err = json.NewDecoder(resp.Body).Decode(&organizationJSON)
-	if err != nil {
-		return "", err
-	}
-
-	return organizationJSON.Data[0].Name, nil
-
+	return "", fmt.Errorf("unexpected error")
 }
 
 func printPermissions(permissions []string) {
 	color.Yellow("[i] Permissions:")
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"Permission"})
-	for _, permission := range permissions {
-		t.AppendRow(table.Row{color.GreenString(permission)})
+
+	if len(permissions) == 0 {
+		color.Yellow("No permissions found")
+	} else {
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.AppendHeader(table.Row{"Permission"})
+		for _, permission := range permissions {
+			t.AppendRow(table.Row{color.GreenString(permission)})
+		}
+		t.Render()
 	}
-	t.Render()
 }

@@ -3,8 +3,9 @@ package planetscale
 import (
 	"context"
 	"fmt"
-	regexp "github.com/wasilibs/go-re2"
 	"net/http"
+
+	regexp "github.com/wasilibs/go-re2"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
@@ -66,6 +67,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {
 						s1.Verified = true
+						s1.AnalysisInfo = map[string]string{
+							"id":    username,
+							"token": password,
+						}
 					} else if res.StatusCode == 401 {
 						// The secret is determinately not verified
 						s1.Verified = false
