@@ -54,37 +54,5 @@
                 "invalid_status_code": [403]
             }
         }
-    ],
-    "oauth_application_scopes": [
-        {
-            "name": "write_oauth_tokens",
-            "test": {
-                "endpoint": "https://api.planetscale.com/v1/organizations/%s/oauth-applications/%s/token",
-                "method": "POST",
-                "valid_status_code": [422],
-                "invalid_status_code": [403]
-            }
-        },
-        {
-            "name": "read_oauth_tokens",
-            "test": {
-                "endpoint": "https://api.planetscale.com/v1/organizations/%s/oauth-applications/%s/tokens",
-                "method": "GET",
-                "valid_status_code": [200],
-                "invalid_status_code": [403]
-            }
-        }
-    ],
-    "database_scopes": [
-        {
-            "name": "read_database",
-            "test": {
-                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s",
-                "method": "GET",
-                "valid_status_code": [200],
-                "invalid_status_code": [403]
-            }
-        }
     ]
-    
 }
