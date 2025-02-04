@@ -15,6 +15,14 @@ const (
     ReadOauthApplications Permission = iota
     WriteOauthTokens Permission = iota
     ReadOauthTokens Permission = iota
+    ReadDatabase Permission = iota
+    WriteDatabase Permission = iota
+    ReadBranch Permission = iota
+    CreateBranch Permission = iota
+    ReadDeployRequest Permission = iota
+    CreateDeployRequest Permission = iota
+    ConnectBranch Permission = iota
+    ConnectProductionBranch Permission = iota
 )
 
 var (
@@ -27,6 +35,14 @@ var (
         ReadOauthApplications: "read_oauth_applications",
         WriteOauthTokens: "write_oauth_tokens",
         ReadOauthTokens: "read_oauth_tokens",
+        ReadDatabase: "read_database",
+        WriteDatabase: "write_database",
+        ReadBranch: "read_branch",
+        CreateBranch: "create_branch",
+        ReadDeployRequest: "read_deploy_request",
+        CreateDeployRequest: "create_deploy_request",
+        ConnectBranch: "connect_branch",
+        ConnectProductionBranch: "connect_production_branch",
     }
 
     StringToPermission = map[string]Permission{
@@ -38,6 +54,14 @@ var (
         "read_oauth_applications": ReadOauthApplications,
         "write_oauth_tokens": WriteOauthTokens,
         "read_oauth_tokens": ReadOauthTokens,
+        "read_database": ReadDatabase,
+        "write_database": WriteDatabase,
+        "read_branch": ReadBranch,
+        "create_branch": CreateBranch,
+        "read_deploy_request": ReadDeployRequest,
+        "create_deploy_request": CreateDeployRequest,
+        "connect_branch": ConnectBranch,
+        "connect_production_branch": ConnectProductionBranch,
     }
 
     PermissionIDs = map[Permission]int{
@@ -49,6 +73,14 @@ var (
         ReadOauthApplications: 6,
         WriteOauthTokens: 7,
         ReadOauthTokens: 8,
+        ReadDatabase: 9,
+        WriteDatabase: 10,
+        ReadBranch: 11,
+        CreateBranch: 12,
+        ReadDeployRequest: 13,
+        CreateDeployRequest: 14,
+        ConnectBranch: 15,
+        ConnectProductionBranch: 16,
     }
 
     IdToPermission = map[int]Permission{
@@ -60,6 +92,14 @@ var (
         6: ReadOauthApplications,
         7: WriteOauthTokens,
         8: ReadOauthTokens,
+        9: ReadDatabase,
+        10: WriteDatabase,
+        11: ReadBranch,
+        12: CreateBranch,
+        13: ReadDeployRequest,
+        14: CreateDeployRequest,
+        15: ConnectBranch,
+        16: ConnectProductionBranch,
     }
 )
 

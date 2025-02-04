@@ -7,3 +7,11 @@ permissions:
  - read_oauth_applications
  - write_oauth_tokens
  - read_oauth_tokens
+ - read_database
+ - write_database
+ - read_branch
+ - create_branch
+ - read_deploy_request
+ - create_deploy_request
+ - connect_branch
+ - connect_production_branch

@@ -54,5 +54,112 @@
                 "invalid_status_code": [403]
             }
         }
+    ],
+    "oauth_application_scopes": [
+        {
+            "name": "write_oauth_tokens",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/oauth-applications/%s/token",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "read_oauth_tokens",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/oauth-applications/%s/tokens",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        }
+    ],
+    "database_scopes": [
+        {
+            "name": "read_database",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "write_database",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s",
+                "method": "PATCH",
+                "valid_status_code": [400],
+                "invalid_status_code": [403],
+                "payload": {
+                    "default_branch": "`nowaythisbranchcanexist"
+                }
+            }
+        },
+        {
+            "name": "read_branch",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/branches",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "create_branch",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/branches",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "read_deploy_request",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/deploy-requests",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        },
+        {
+            "name": "create_deploy_request",
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/deploy-requests",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403]
+            }
+        }
+    ],
+    "branch_scopes": [
+        {
+            "name": "connect_branch",
+            "production": false,
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/branches/%s/passwords",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403],
+                "payload": {
+                    "role": "`nowaythisrolecanexist"
+                  }
+            }
+        },
+        {
+            "name": "connect_production_branch",
+            "production": true,
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/branches/%s/passwords",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403],
+                "payload": {
+                    "role": "`nowaythisrolecanexist"
+                  }
+            }
+        }
     ]
 }

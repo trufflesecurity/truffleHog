@@ -11,6 +11,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/table"
@@ -50,7 +52,7 @@ func secretInfoToAnalyzerResult(info *SecretInfo) *analyzers.AnalyzerResult {
 	result := analyzers.AnalyzerResult{
 		AnalyzerType: analyzers.AnalyzerTypePlanetScale,
 		Metadata:     nil,
-		Bindings:     make([]analyzers.Binding, len(info.Permissions)),
+		Bindings:     make([]analyzers.Binding, len(info.OrgPermissions)),
 	}
 
 	resource := analyzers.Resource{
@@ -59,7 +61,7 @@ func secretInfoToAnalyzerResult(info *SecretInfo) *analyzers.AnalyzerResult {
 		Type:               "Organization",
 	}
 
-	for idx, permission := range info.Permissions {
+	for idx, permission := range info.OrgPermissions {
 		result.Bindings[idx] = analyzers.Binding{
 			Resource: resource,
 			Permission: analyzers.Permission{
@@ -91,7 +93,7 @@ func StatusContains(status int, vals []int) bool {
 	return false
 }
 
-func (h *HttpStatusTest) RunTest(cfg *config.Config, headers map[string]string, organization string) (bool, error) {
+func (h *HttpStatusTest) RunTest(cfg *config.Config, headers map[string]string, args ...any) (bool, error) {
 	// If body data, marshal to JSON
 	var data io.Reader
 	if h.Payload != nil {
@@ -104,7 +106,7 @@ func (h *HttpStatusTest) RunTest(cfg *config.Config, headers map[string]string, 
 
 	// Create new HTTP request
 	client := analyzers.NewAnalyzeClient(cfg)
-	req, err := http.NewRequest(h.Method, fmt.Sprintf(h.Endpoint, organization), data)
+	req, err := http.NewRequest(h.Method, fmt.Sprintf(h.Endpoint, args...), data)
 	if err != nil {
 		return false, err
 	}
@@ -113,6 +115,7 @@ func (h *HttpStatusTest) RunTest(cfg *config.Config, headers map[string]string, 
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
+	req.Header.Add("Content-Type", "application/json")
 
 	// Execute HTTP Request
 	resp, err := client.Do(req)
@@ -133,14 +136,20 @@ func (h *HttpStatusTest) RunTest(cfg *config.Config, headers map[string]string, 
 }
 
 type Scopes struct {
-	OrganizationScopes     []Scope `json:"organization_scopes"`
-	OAuthApplicationScopes []Scope `json:"oauth_application_scopes"`
-	DatabaseScopes         []Scope `json:"database_scopes"`
+	OrganizationScopes     []Scope       `json:"organization_scopes"`
+	OAuthApplicationScopes []Scope       `json:"oauth_application_scopes"`
+	DatabaseScopes         []Scope       `json:"database_scopes"`
+	BranchScopes           []BranchScope `json:"branch_scopes"`
 }
 
 type Scope struct {
 	Name     string         `json:"name"`
 	HttpTest HttpStatusTest `json:"test"`
+}
+
+type BranchScope struct {
+	Scope
+	Production bool `json:"production"`
 }
 
 func readInScopes() (*Scopes, error) {
@@ -152,15 +161,29 @@ func readInScopes() (*Scopes, error) {
 	return &scopes, nil
 }
 
-func checkPermissions(cfg *config.Config, id, key, organization string) ([]string, error) {
-	scopes, err := readInScopes()
-	if err != nil {
-		return nil, fmt.Errorf("reading in scopes: %w", err)
-	}
+func checkPermissions(cfg *config.Config, scopes []Scope, id, key string, args ...any) ([]string, error) {
 
 	permissions := make([]string, 0)
-	for _, scope := range scopes.OrganizationScopes {
-		status, err := scope.HttpTest.RunTest(cfg, map[string]string{"Authorization": fmt.Sprintf("%s:%s", id, key)}, organization)
+	for _, scope := range scopes {
+		status, err := scope.HttpTest.RunTest(cfg, map[string]string{"Authorization": fmt.Sprintf("%s:%s", id, key)}, args...)
+		if err != nil {
+			return nil, fmt.Errorf("running test: %w", err)
+		}
+		if status {
+			permissions = append(permissions, scope.Name)
+		}
+	}
+
+	return permissions, nil
+}
+
+func checkBranchPermissions(cfg *config.Config, scopes []BranchScope, id, key, organization, db, branch string, production bool) ([]string, error) {
+	permissions := make([]string, 0)
+	for _, scope := range scopes {
+		if production != scope.Production {
+			continue
+		}
+		status, err := scope.HttpTest.RunTest(cfg, map[string]string{"Authorization": fmt.Sprintf("%s:%s", id, key)}, organization, db, branch)
 		if err != nil {
 			return nil, fmt.Errorf("running test: %w", err)
 		}
@@ -182,8 +205,9 @@ func contains(s []string, e string) bool {
 }
 
 type SecretInfo struct {
-	OrgName     string
-	Permissions []string
+	OrgName             string
+	OrgPermissions      []string
+	DatabasePermissions map[Database][]string
 }
 
 func AnalyzeAndPrintPermissions(cfg *config.Config, id, token string) {
@@ -194,9 +218,12 @@ func AnalyzeAndPrintPermissions(cfg *config.Config, id, token string) {
 	}
 
 	color.Green("[!] Valid PlanetScale credentials\n\n")
-	color.Green("[i] Organization: %s", info.OrgName)
-	printPermissions(info.Permissions)
+	color.Green("[i] Organization: %s\n\n", info.OrgName)
+	printOrganizationPermissions(info.OrgPermissions)
 
+	if len(info.DatabasePermissions) > 0 {
+		printDatabasePermissions(info.DatabasePermissions)
+	}
 }
 
 func AnalyzePermissions(cfg *config.Config, id, token string) (*SecretInfo, error) {
@@ -206,18 +233,77 @@ func AnalyzePermissions(cfg *config.Config, id, token string) (*SecretInfo, erro
 	if err != nil {
 		return nil, err
 	}
+	info.OrgName = orgName
 
-	permissions, err := checkPermissions(cfg, id, token, orgName)
+	scopes, err := readInScopes()
+	if err != nil {
+		return nil, fmt.Errorf("reading in scopes: %w", err)
+	}
+
+	organizationPermissions, err := checkPermissions(cfg, scopes.OrganizationScopes, id, token, orgName)
 	if err != nil {
 		return nil, err
 	}
+	info.OrgPermissions = organizationPermissions
 
 	// if len(permissions) == 0 {
 	// 	return nil, fmt.Errorf("invalid credentials")
 	// }
 
-	info.Permissions = permissions
-	info.OrgName = orgName
+	readOAuthApplicationPermission, _ := ReadOauthApplications.ToString()
+	if slices.Contains(organizationPermissions, readOAuthApplicationPermission) {
+		oauthApplicationId, err := getOAuthApplicationId(cfg, id, token, orgName)
+		if err != nil {
+			return nil, err
+		}
+
+		oauthPermissions, err := checkPermissions(cfg, scopes.OAuthApplicationScopes, id, token, orgName, oauthApplicationId)
+		if err != nil {
+			return nil, err
+		}
+		info.OrgPermissions = append(info.OrgPermissions, oauthPermissions...)
+	}
+
+	databases, err := getDatabases(cfg, id, token, orgName)
+	if err != nil {
+		return nil, err
+	}
+
+	info.DatabasePermissions = make(map[Database][]string)
+	for _, database := range databases {
+		dbPermissions, err := checkPermissions(cfg, scopes.DatabaseScopes, id, token, orgName, database.Name)
+		if err != nil {
+			return nil, err
+		}
+		info.DatabasePermissions[database] = dbPermissions
+
+		readBranchPermission, _ := ReadBranch.ToString()
+		if slices.Contains(dbPermissions, readBranchPermission) {
+			branches, err := getDbBranches(cfg, id, token, orgName, database.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			// get permissions for prod and non prod branches
+			prodDone, nonProdDone := false, false
+			for _, branch := range branches {
+				if branch.Production {
+					prodDone = true
+				} else {
+					nonProdDone = true
+				}
+				branchPermissions, err := checkBranchPermissions(cfg, scopes.BranchScopes, id, token, orgName, database.Name, branch.Name, branch.Production)
+				if err != nil {
+					return nil, err
+				}
+				info.DatabasePermissions[database] = append(info.DatabasePermissions[database], branchPermissions...)
+
+				if prodDone && nonProdDone {
+					break
+				}
+			}
+		}
+	}
 
 	return info, nil
 }
@@ -263,12 +349,162 @@ func getOrganizationName(cfg *config.Config, id, key string) (string, error) {
 	default:
 		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
-
-	return "", fmt.Errorf("unexpected error")
 }
 
-func printPermissions(permissions []string) {
-	color.Yellow("[i] Permissions:")
+type oauthApplicationJSON struct {
+	Data []struct {
+		Id string `json:"id"`
+	}
+}
+
+func getOAuthApplicationId(cfg *config.Config, id, key, organization string) (string, error) {
+	url := "https://api.planetscale.com/v1/organizations/%s/oauth-applications"
+
+	client := analyzers.NewAnalyzeClient(cfg)
+
+	req, err := http.NewRequest("GET", fmt.Sprintf(url, organization), nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("%s:%s", id, key))
+
+	// Execute HTTP Request
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	// Check response status code
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Decode response body
+		var oauthApplicationJSON oauthApplicationJSON
+		err = json.NewDecoder(resp.Body).Decode(&oauthApplicationJSON)
+		if err != nil {
+			return "", err
+		}
+
+		if len(oauthApplicationJSON.Data) > 0 {
+			return oauthApplicationJSON.Data[0].Id, nil
+		}
+		return "", nil // no oauth application found
+	case http.StatusUnauthorized:
+		return "", fmt.Errorf("invalid credentials")
+	default:
+		return "", fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
+}
+
+type Database struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+type databasesJSON struct {
+	Data        []Database `json:"data"`
+	NextPageUrl string     `json:"next_page_url"`
+}
+
+func getDatabases(cfg *config.Config, id, key, organization string) ([]Database, error) {
+	url := fmt.Sprintf("https://api.planetscale.com/v1/organizations/%s/databases", organization)
+
+	client := analyzers.NewAnalyzeClient(cfg)
+
+	databases := make([]Database, 0)
+
+	// loop for pagination
+	for url != "" {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", fmt.Sprintf("%s:%s", id, key))
+
+		// Execute HTTP Request
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		// Check response status code
+		switch resp.StatusCode {
+		case http.StatusOK:
+			// Decode response body
+			var databasesResponse databasesJSON
+			err = json.NewDecoder(resp.Body).Decode(&databasesResponse)
+			if err != nil {
+				return nil, err
+			}
+
+			databases = append(databases, databasesResponse.Data...)
+			url = databasesResponse.NextPageUrl
+		case http.StatusUnauthorized:
+			return nil, fmt.Errorf("invalid credentials")
+		default:
+			return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		}
+	}
+
+	return databases, nil
+}
+
+type Branch struct {
+	Id         string `json:"id"`
+	Name       string `json:"name"`
+	Production bool   `json:"production"`
+}
+
+type branchesJSON struct {
+	Data []Branch `json:"data"`
+}
+
+func getDbBranches(cfg *config.Config, id, key, organization, db string) ([]Branch, error) {
+	url := fmt.Sprintf("https://api.planetscale.com/v1/organizations/%s/databases/%s/branches", organization, db)
+
+	client := analyzers.NewAnalyzeClient(cfg)
+
+	branches := make([]Branch, 0)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("%s:%s", id, key))
+
+	// Execute HTTP Request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Check response status code
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Decode response body
+		var branchesResponse branchesJSON
+		err = json.NewDecoder(resp.Body).Decode(&branchesResponse)
+		if err != nil {
+			return nil, err
+		}
+
+		branches = append(branches, branchesResponse.Data...)
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("invalid credentials")
+	default:
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+	}
+
+	return branches, nil
+}
+
+func printOrganizationPermissions(permissions []string) {
+	color.Yellow("[i] Organization Permissions:")
 
 	if len(permissions) == 0 {
 		color.Yellow("No permissions found")
@@ -281,4 +517,16 @@ func printPermissions(permissions []string) {
 		}
 		t.Render()
 	}
+}
+
+func printDatabasePermissions(permissions map[Database][]string) {
+	color.Yellow("[i] Database Permissions:")
+
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"Database", "Permission"})
+	for database, dbPermissions := range permissions {
+		t.AppendRow(table.Row{database.Name, color.GreenString(strings.Join(dbPermissions, ", "))})
+	}
+	t.Render()
 }
