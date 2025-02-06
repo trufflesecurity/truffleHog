@@ -12,17 +12,33 @@ const (
     ReadDatabases Permission = iota
     ReadAuditLogs Permission = iota
     CreateDatabases Permission = iota
+    DeleteDatabases Permission = iota
     ReadOauthApplications Permission = iota
     WriteOauthTokens Permission = iota
     ReadOauthTokens Permission = iota
+    DeleteOauthTokens Permission = iota
     ReadDatabase Permission = iota
     WriteDatabase Permission = iota
+    DeleteDatabase Permission = iota
     ReadBranch Permission = iota
     CreateBranch Permission = iota
+    DeleteBranch Permission = iota
+    DeleteBranchPassword Permission = iota
+    DeleteProductionBranch Permission = iota
+    DeleteProductionBranchPassword Permission = iota
     ReadDeployRequest Permission = iota
     CreateDeployRequest Permission = iota
+    ApproveDeployRequest Permission = iota
     ConnectBranch Permission = iota
     ConnectProductionBranch Permission = iota
+    ReadComment Permission = iota
+    CreateComment Permission = iota
+    RestoreBackup Permission = iota
+    WriteBackups Permission = iota
+    ReadBackups Permission = iota
+    DeleteBackups Permission = iota
+    RestoreProductionBranchBackup Permission = iota
+    DeleteProductionBranchBackups Permission = iota
 )
 
 var (
@@ -32,17 +48,33 @@ var (
         ReadDatabases: "read_databases",
         ReadAuditLogs: "read_audit_logs",
         CreateDatabases: "create_databases",
+        DeleteDatabases: "delete_databases",
         ReadOauthApplications: "read_oauth_applications",
         WriteOauthTokens: "write_oauth_tokens",
         ReadOauthTokens: "read_oauth_tokens",
+        DeleteOauthTokens: "delete_oauth_tokens",
         ReadDatabase: "read_database",
         WriteDatabase: "write_database",
+        DeleteDatabase: "delete_database",
         ReadBranch: "read_branch",
         CreateBranch: "create_branch",
+        DeleteBranch: "delete_branch",
+        DeleteBranchPassword: "delete_branch_password",
+        DeleteProductionBranch: "delete_production_branch",
+        DeleteProductionBranchPassword: "delete_production_branch_password",
         ReadDeployRequest: "read_deploy_request",
         CreateDeployRequest: "create_deploy_request",
+        ApproveDeployRequest: "approve_deploy_request",
         ConnectBranch: "connect_branch",
         ConnectProductionBranch: "connect_production_branch",
+        ReadComment: "read_comment",
+        CreateComment: "create_comment",
+        RestoreBackup: "restore_backup",
+        WriteBackups: "write_backups",
+        ReadBackups: "read_backups",
+        DeleteBackups: "delete_backups",
+        RestoreProductionBranchBackup: "restore_production_branch_backup",
+        DeleteProductionBranchBackups: "delete_production_branch_backups",
     }
 
     StringToPermission = map[string]Permission{
@@ -51,17 +83,33 @@ var (
         "read_databases": ReadDatabases,
         "read_audit_logs": ReadAuditLogs,
         "create_databases": CreateDatabases,
+        "delete_databases": DeleteDatabases,
         "read_oauth_applications": ReadOauthApplications,
         "write_oauth_tokens": WriteOauthTokens,
         "read_oauth_tokens": ReadOauthTokens,
+        "delete_oauth_tokens": DeleteOauthTokens,
         "read_database": ReadDatabase,
         "write_database": WriteDatabase,
+        "delete_database": DeleteDatabase,
         "read_branch": ReadBranch,
         "create_branch": CreateBranch,
+        "delete_branch": DeleteBranch,
+        "delete_branch_password": DeleteBranchPassword,
+        "delete_production_branch": DeleteProductionBranch,
+        "delete_production_branch_password": DeleteProductionBranchPassword,
         "read_deploy_request": ReadDeployRequest,
         "create_deploy_request": CreateDeployRequest,
+        "approve_deploy_request": ApproveDeployRequest,
         "connect_branch": ConnectBranch,
         "connect_production_branch": ConnectProductionBranch,
+        "read_comment": ReadComment,
+        "create_comment": CreateComment,
+        "restore_backup": RestoreBackup,
+        "write_backups": WriteBackups,
+        "read_backups": ReadBackups,
+        "delete_backups": DeleteBackups,
+        "restore_production_branch_backup": RestoreProductionBranchBackup,
+        "delete_production_branch_backups": DeleteProductionBranchBackups,
     }
 
     PermissionIDs = map[Permission]int{
@@ -70,17 +118,33 @@ var (
         ReadDatabases: 3,
         ReadAuditLogs: 4,
         CreateDatabases: 5,
-        ReadOauthApplications: 6,
-        WriteOauthTokens: 7,
-        ReadOauthTokens: 8,
-        ReadDatabase: 9,
-        WriteDatabase: 10,
-        ReadBranch: 11,
-        CreateBranch: 12,
-        ReadDeployRequest: 13,
-        CreateDeployRequest: 14,
-        ConnectBranch: 15,
-        ConnectProductionBranch: 16,
+        DeleteDatabases: 6,
+        ReadOauthApplications: 7,
+        WriteOauthTokens: 8,
+        ReadOauthTokens: 9,
+        DeleteOauthTokens: 10,
+        ReadDatabase: 11,
+        WriteDatabase: 12,
+        DeleteDatabase: 13,
+        ReadBranch: 14,
+        CreateBranch: 15,
+        DeleteBranch: 16,
+        DeleteBranchPassword: 17,
+        DeleteProductionBranch: 18,
+        DeleteProductionBranchPassword: 19,
+        ReadDeployRequest: 20,
+        CreateDeployRequest: 21,
+        ApproveDeployRequest: 22,
+        ConnectBranch: 23,
+        ConnectProductionBranch: 24,
+        ReadComment: 25,
+        CreateComment: 26,
+        RestoreBackup: 27,
+        WriteBackups: 28,
+        ReadBackups: 29,
+        DeleteBackups: 30,
+        RestoreProductionBranchBackup: 31,
+        DeleteProductionBranchBackups: 32,
     }
 
     IdToPermission = map[int]Permission{
@@ -89,17 +153,33 @@ var (
         3: ReadDatabases,
         4: ReadAuditLogs,
         5: CreateDatabases,
-        6: ReadOauthApplications,
-        7: WriteOauthTokens,
-        8: ReadOauthTokens,
-        9: ReadDatabase,
-        10: WriteDatabase,
-        11: ReadBranch,
-        12: CreateBranch,
-        13: ReadDeployRequest,
-        14: CreateDeployRequest,
-        15: ConnectBranch,
-        16: ConnectProductionBranch,
+        6: DeleteDatabases,
+        7: ReadOauthApplications,
+        8: WriteOauthTokens,
+        9: ReadOauthTokens,
+        10: DeleteOauthTokens,
+        11: ReadDatabase,
+        12: WriteDatabase,
+        13: DeleteDatabase,
+        14: ReadBranch,
+        15: CreateBranch,
+        16: DeleteBranch,
+        17: DeleteBranchPassword,
+        18: DeleteProductionBranch,
+        19: DeleteProductionBranchPassword,
+        20: ReadDeployRequest,
+        21: CreateDeployRequest,
+        22: ApproveDeployRequest,
+        23: ConnectBranch,
+        24: ConnectProductionBranch,
+        25: ReadComment,
+        26: CreateComment,
+        27: RestoreBackup,
+        28: WriteBackups,
+        29: ReadBackups,
+        30: DeleteBackups,
+        31: RestoreProductionBranchBackup,
+        32: DeleteProductionBranchBackups,
     }
 )
 

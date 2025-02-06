@@ -160,6 +160,44 @@
                     "role": "`nowaythisrolecanexist"
                   }
             }
+        },
+        {
+            "name": "read_backups",
+            "production": true,
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/branches/%s/backups",
+                "method": "GET",
+                "valid_status_code": [200],
+                "invalid_status_code": [403]
+            }
+        }
+    ],
+    "backup_scopes": [
+        {
+            "name": "restore_backup",
+            "production": false,
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/branches",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403],
+                "payload": {
+                    "backup_id": "%s"
+                  }
+            }
+        },
+        {
+            "name": "restore_production_branch_backup",
+            "production": true,
+            "test": {
+                "endpoint": "https://api.planetscale.com/v1/organizations/%s/databases/%s/branches",
+                "method": "POST",
+                "valid_status_code": [422],
+                "invalid_status_code": [403],
+                "payload": {
+                    "backup_id": "%s"
+                  }
+            }
         }
     ]
 }
