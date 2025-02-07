@@ -233,15 +233,6 @@ func checkBackupPermissions(cfg *config.Config, scopes []BranchScope, id, key, o
 	return permissions, nil
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
 type SecretInfo struct {
 	Organization          organization
 	OrgPermissions        []string
