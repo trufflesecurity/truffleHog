@@ -1,12 +1,13 @@
 package access_keys
 
 import (
+	"context"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/sns"
 )
 
 const thinkstMessage = "This is an AWS canary token generated at canarytokens.org, and was not set off; learn more here: https://trufflesecurity.com/canaries"
@@ -44,21 +45,21 @@ var (
 	}
 )
 
-func (s scanner) verifyCanary(resIDMatch, resSecretMatch string) (bool, string, error) {
+func (s scanner) verifyCanary(ctx context.Context, resIDMatch, resSecretMatch string) (bool, string, error) {
 	// Prep AWS Creds for SNS
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"), // any region seems to work
-		Credentials: credentials.NewStaticCredentials(
-			resIDMatch,
-			resSecretMatch,
-			"",
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion("us-east-1"),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(resIDMatch, resSecretMatch, ""),
 		),
-		HTTPClient: s.verificationClient,
-	}))
-	svc := sns.New(sess)
+	)
+	if err != nil {
+		return false, "", err
+	}
+	svc := sns.NewFromConfig(cfg)
 
 	// Prep vars and Publish to SNS
-	_, err := svc.Publish(&sns.PublishInput{
+	_, err = svc.Publish(ctx, &sns.PublishInput{
 		Message:     aws.String("foo"),
 		PhoneNumber: aws.String("1"),
 	})

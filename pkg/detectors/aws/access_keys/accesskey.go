@@ -127,7 +127,7 @@ func (s scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					isCanary = true
 					s1.ExtraData["message"] = thinkstMessage
 					if verify {
-						verified, arn, err := s.verifyCanary(idMatch, secretMatch)
+						verified, arn, err := s.verifyCanary(ctx, idMatch, secretMatch)
 						s1.Verified = verified
 						if arn != "" {
 							s1.ExtraData["arn"] = arn
@@ -139,7 +139,7 @@ func (s scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					isCanary = true
 					s1.ExtraData["message"] = thinkstKnockoffsMessage
 					if verify {
-						verified, arn, err := s.verifyCanary(idMatch, secretMatch)
+						verified, arn, err := s.verifyCanary(ctx, idMatch, secretMatch)
 						s1.Verified = verified
 						if arn != "" {
 							s1.ExtraData["arn"] = arn
