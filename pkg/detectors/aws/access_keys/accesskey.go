@@ -153,7 +153,7 @@ func (s scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify && !isCanary {
-				isVerified, extraData, verificationErr := s.verifyMatch(ctx, idMatch, secretMatch, true)
+				isVerified, extraData, verificationErr := s.verifyMatch(ctx, idMatch, secretMatch)
 				s1.Verified = isVerified
 
 				// Log if the calculated ID does not match the ID value from verification.
@@ -197,7 +197,7 @@ const (
 	endpoint = "https://sts.amazonaws.com"
 )
 
-func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch string, retryOn403 bool) (bool, map[string]string, error) {
+func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch string) (bool, map[string]string, error) {
 	// Prep AWS Creds for SNS
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
