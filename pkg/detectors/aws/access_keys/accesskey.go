@@ -2,14 +2,13 @@ package access_keys
 
 import (
 	"context"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
-	"time"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	regexp "github.com/wasilibs/go-re2"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
@@ -199,117 +198,35 @@ const (
 )
 
 func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch string, retryOn403 bool) (bool, map[string]string, error) {
-	// REQUEST VALUES.
-	now := time.Now().UTC()
-	datestamp := now.Format("20060102")
-	amzDate := now.Format("20060102T150405Z0700")
-
-	req, err := http.NewRequestWithContext(ctx, method, endpoint, nil)
+	// Prep AWS Creds for SNS
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(region),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(resIDMatch, resSecretMatch, ""),
+		),
+	)
 	if err != nil {
 		return false, nil, err
 	}
-	req.Header.Set("Accept", "application/json")
+	// Create STS client
+	stsClient := sts.NewFromConfig(cfg)
 
-	// TASK 1: CREATE A CANONICAL REQUEST.
-	// http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
-	canonicalURI := "/"
-	canonicalHeaders := "host:" + host + "\n"
-	signedHeaders := "host"
-	algorithm := "AWS4-HMAC-SHA256"
-	credentialScope := fmt.Sprintf("%s/%s/%s/aws4_request", datestamp, region, service)
-
-	params := req.URL.Query()
-	params.Add("Action", "GetCallerIdentity")
-	params.Add("Version", "2011-06-15")
-	params.Add("X-Amz-Algorithm", algorithm)
-	params.Add("X-Amz-Credential", resIDMatch+"/"+credentialScope)
-	params.Add("X-Amz-Date", amzDate)
-	params.Add("X-Amz-Expires", "30")
-	params.Add("X-Amz-SignedHeaders", signedHeaders)
-
-	canonicalQuerystring := params.Encode()
-	payloadHash := aws.GetHash("") // empty payload
-	canonicalRequest := method + "\n" + canonicalURI + "\n" + canonicalQuerystring + "\n" + canonicalHeaders + "\n" + signedHeaders + "\n" + payloadHash
-
-	// TASK 2: CREATE THE STRING TO SIGN.
-	stringToSign := algorithm + "\n" + amzDate + "\n" + credentialScope + "\n" + aws.GetHash(canonicalRequest)
-
-	// TASK 3: CALCULATE THE SIGNATURE.
-	// https://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
-	hash := aws.GetHMAC([]byte(fmt.Sprintf("AWS4%s", resSecretMatch)), []byte(datestamp))
-	hash = aws.GetHMAC(hash, []byte(region))
-	hash = aws.GetHMAC(hash, []byte(service))
-	hash = aws.GetHMAC(hash, []byte("aws4_request"))
-
-	signature2 := aws.GetHMAC(hash, []byte(stringToSign)) // Get Signature HMAC SHA256
-	signature := hex.EncodeToString(signature2)
-
-	// TASK 4: ADD SIGNING INFORMATION TO THE REQUEST.
-	params.Add("X-Amz-Signature", signature)
-	req.Header.Add("Content-type", "application/x-www-form-urlencoded; charset=utf-8")
-	req.URL.RawQuery = params.Encode()
-
-	client := s.verificationClient
-	if client == nil {
-		client = defaultVerificationClient
-	}
-
-	res, err := client.Do(req)
+	// Make the GetCallerIdentity API call
+	resp, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
-		return false, nil, err
-	}
-	defer func() {
-		_, _ = io.Copy(io.Discard, res.Body)
-		_ = res.Body.Close()
-	}()
-
-	// TODO: tighten range of acceptable status codes
-	if res.StatusCode >= 200 && res.StatusCode < 300 {
-		identityInfo := aws.IdentityResponse{}
-		if err := json.NewDecoder(res.Body).Decode(&identityInfo); err != nil {
-			return false, nil, err
-		}
-
-		extraData := map[string]string{
-			"rotation_guide": "https://howtorotate.com/docs/tutorials/aws/",
-			"account":        identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.Account,
-			"user_id":        identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.UserID,
-			"arn":            identityInfo.GetCallerIdentityResponse.GetCallerIdentityResult.Arn,
-		}
-		return true, extraData, nil
-	} else if res.StatusCode == 403 {
-		// Experimentation has indicated that if you make two GetCallerIdentity requests within five seconds that
-		// share a key ID but are signed with different secrets the second one will be rejected with a 403 that
-		// carries a SignatureDoesNotMatch code in its body. This happens even if the second ID-secret pair is
-		// valid. Since this is exactly our access pattern, we need to work around it.
-		//
-		// Fortunately, experimentation has also revealed a workaround: simply resubmit the second request. The
-		// response to the resubmission will be as expected. But there's a caveat: You can't have closed the body of
-		// the response to the original second request, or read to its end, or the resubmission will also yield a
-		// SignatureDoesNotMatch. For this reason, we have to re-request all 403s. We can't re-request only
-		// SignatureDoesNotMatch responses, because we can only tell whether a given 403 is a SignatureDoesNotMatch
-		// after decoding its response body, which requires reading the entire response body, which disables the
-		// workaround.
-		//
-		// We are clearly deep in the guts of AWS implementation details here, so this all might change with no
-		// notice. If you're here because something in this detector broke, you have my condolences.
-		if retryOn403 {
-			return s.verifyMatch(ctx, resIDMatch, resSecretMatch, false)
-		}
-
-		var body aws.ErrorResponseBody
-		if err = json.NewDecoder(res.Body).Decode(&body); err != nil {
-			return false, nil, fmt.Errorf("couldn't parse the sts response body (%v)", err)
-		}
-		// All instances of the code I've seen in the wild are PascalCased but this check is
-		// case-insensitive out of an abundance of caution
-		if strings.EqualFold(body.Error.Code, "InvalidClientTokenId") {
+		if strings.Contains(err.Error(), "StatusCode: 403") {
 			return false, nil, nil
 		}
-		return false, nil, fmt.Errorf("request returned status %d with an unexpected reason (%s: %s)", res.StatusCode, body.Error.Code, body.Error.Message)
-	} else {
-		return false, nil, fmt.Errorf("request to %v returned unexpected status %d", res.Request.URL, res.StatusCode)
+		return false, nil, fmt.Errorf("request returned unexpected error: %s", err.Error())
 	}
+
+	extraData := map[string]string{
+		"rotation_guide": "https://howtorotate.com/docs/tutorials/aws/",
+		"account":        *resp.Account,
+		"user_id":        *resp.UserId,
+		"arn":            *resp.Arn,
+	}
+	return true, extraData, nil
 }
 
 func (s scanner) CleanResults(results []detectors.Result) []detectors.Result {
