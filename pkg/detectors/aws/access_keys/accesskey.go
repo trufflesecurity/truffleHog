@@ -71,6 +71,13 @@ func (s scanner) Keywords() []string {
 	}
 }
 
+func (s scanner) getClient() *http.Client {
+	if s.verificationClient == nil {
+		s.verificationClient = defaultVerificationClient
+	}
+	return s.verificationClient
+}
+
 // FromData will find and optionally verify AWS secrets in a given set of bytes.
 func (s scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
 	logger := logContext.AddLogger(ctx).Logger().WithName("aws")
@@ -201,6 +208,7 @@ func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch str
 	// Prep AWS Creds for STS
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
+		config.WithHTTPClient(s.getClient()),
 		config.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(resIDMatch, resSecretMatch, ""),
 		),
@@ -214,7 +222,7 @@ func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch str
 	// Make the GetCallerIdentity API call
 	resp, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
-		if strings.Contains(err.Error(), "StatusCode: 403") {
+		if strings.Contains(err.Error(), "StatusCode: 403") || strings.Contains(err.Error(), "InvalidClientTokenId") {
 			return false, nil, nil
 		}
 		return false, nil, fmt.Errorf("request returned unexpected error: %s", err.Error())

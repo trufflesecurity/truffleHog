@@ -48,7 +48,8 @@ var (
 func (s scanner) verifyCanary(ctx context.Context, resIDMatch, resSecretMatch string) (bool, string, error) {
 	// Prep AWS Creds for SNS
 	cfg, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion("us-east-1"),
+		config.WithRegion(region),
+		config.WithHTTPClient(s.getClient()),
 		config.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(resIDMatch, resSecretMatch, ""),
 		),
@@ -70,7 +71,7 @@ func (s scanner) verifyCanary(ctx context.Context, resIDMatch, resSecretMatch st
 		return true, arn, nil
 	} else if strings.Contains(err.Error(), "does not match the signature you provided") {
 		return false, "", nil
-	} else if strings.Contains(err.Error(), "status code: 403") {
+	} else if strings.Contains(err.Error(), "status code: 403") || strings.Contains(err.Error(), "InvalidClientTokenId") {
 		return false, "", nil
 	} else {
 		return false, "", err
