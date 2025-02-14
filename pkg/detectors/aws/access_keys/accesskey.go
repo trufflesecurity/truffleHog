@@ -198,7 +198,7 @@ const (
 )
 
 func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch string) (bool, map[string]string, error) {
-	// Prep AWS Creds for SNS
+	// Prep AWS Creds for STS
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithCredentialsProvider(
