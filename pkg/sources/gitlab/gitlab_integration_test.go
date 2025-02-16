@@ -372,10 +372,10 @@ func TestSource_Chunks_TargetedScan(t *testing.T) {
 					Data: &source_metadatapb.MetaData_Gitlab{
 						Gitlab: &source_metadatapb.Gitlab{
 							Repository: "https://gitlab.com/testermctestface/testy.git",
-							Link:       "https://gitlab.com/testermctestface/testy/blob/30c407baee70d41d062114022a59ed8ee048880a/.gitlab-ci.yml#L1",
 							Commit:     "30c407baee70d41d062114022a59ed8ee048880a",
 							ProjectId:  32561068,
 							File:       "keys",
+							Link:       "https://gitlab.com/testermctestface/testy/blob/30c407baee70d41d062114022a59ed8ee048880a/.gitlab-ci.yml#L1",
 						},
 					},
 				},
