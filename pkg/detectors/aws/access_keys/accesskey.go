@@ -3,9 +3,13 @@ package access_keys
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws/middleware"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -19,7 +23,7 @@ import (
 )
 
 type scanner struct {
-	verificationClient *http.Client
+	verificationClient config.HTTPClient
 	skipIDs            map[string]struct{}
 	detectors.DefaultMultiPartCredentialProvider
 }
@@ -54,7 +58,6 @@ var _ interface {
 } = (*scanner)(nil)
 
 var (
-	defaultVerificationClient = common.SaneHttpClient()
 
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	// Key types are from this list https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-unique-ids
@@ -71,9 +74,28 @@ func (s scanner) Keywords() []string {
 	}
 }
 
-func (s scanner) getClient() *http.Client {
+// The recommended way by AWS is to use the SDK's http client.
+// https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/configure-http.html
+// Note: Using default http.Client causes SignatureInvalid error in response. therefore, based on http default client implementation, we are using the same configuration.
+func getDefaultBuildableClient() *awshttp.BuildableClient {
+	return awshttp.NewBuildableClient().
+		WithTimeout(common.DefaultResponseTimeout).
+		WithDialerOptions(func(dialer *net.Dialer) {
+			dialer.Timeout = 2 * time.Second
+			dialer.KeepAlive = 5 * time.Second
+		}).
+		WithTransportOptions(func(tr *http.Transport) {
+			tr.Proxy = http.ProxyFromEnvironment
+			tr.MaxIdleConns = 5
+			tr.IdleConnTimeout = 5 * time.Second
+			tr.TLSHandshakeTimeout = 3 * time.Second
+			tr.ExpectContinueTimeout = 1 * time.Second
+		})
+}
+
+func (s scanner) getAWSBuilableClient() config.HTTPClient {
 	if s.verificationClient == nil {
-		s.verificationClient = defaultVerificationClient
+		s.verificationClient = getDefaultBuildableClient()
 	}
 	return s.verificationClient
 }
@@ -208,7 +230,7 @@ func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch str
 	// Prep AWS Creds for STS
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
-		config.WithHTTPClient(s.getClient()),
+		config.WithHTTPClient(s.getAWSBuilableClient()),
 		config.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(resIDMatch, resSecretMatch, ""),
 		),
@@ -217,7 +239,9 @@ func (s scanner) verifyMatch(ctx context.Context, resIDMatch, resSecretMatch str
 		return false, nil, err
 	}
 	// Create STS client
-	stsClient := sts.NewFromConfig(cfg)
+	stsClient := sts.NewFromConfig(cfg, func(o *sts.Options) {
+		o.APIOptions = append(o.APIOptions, middleware.AddUserAgentKeyValue("User-Agent", common.UserAgent()))
+	})
 
 	// Make the GetCallerIdentity API call
 	resp, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})

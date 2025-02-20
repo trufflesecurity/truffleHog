@@ -5,9 +5,11 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 )
 
 const thinkstMessage = "This is an AWS canary token generated at canarytokens.org, and was not set off; learn more here: https://trufflesecurity.com/canaries"
@@ -49,7 +51,7 @@ func (s scanner) verifyCanary(ctx context.Context, resIDMatch, resSecretMatch st
 	// Prep AWS Creds for SNS
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
-		config.WithHTTPClient(s.getClient()),
+		config.WithHTTPClient(s.getAWSBuilableClient()),
 		config.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(resIDMatch, resSecretMatch, ""),
 		),
@@ -57,7 +59,9 @@ func (s scanner) verifyCanary(ctx context.Context, resIDMatch, resSecretMatch st
 	if err != nil {
 		return false, "", err
 	}
-	svc := sns.NewFromConfig(cfg)
+	svc := sns.NewFromConfig(cfg, func(o *sns.Options) {
+		o.APIOptions = append(o.APIOptions, middleware.AddUserAgentKeyValue("User-Agent", common.UserAgent()))
+	})
 
 	// Prep vars and Publish to SNS
 	_, err = svc.Publish(ctx, &sns.PublishInput{
