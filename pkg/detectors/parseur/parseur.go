@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
@@ -18,6 +20,7 @@ type Scanner struct {
 
 // Ensure the Scanner satisfies the interface at compile time
 var _ detectors.Detector = (*Scanner)(nil)
+var _ detectors.ConditionalDetector = (*Scanner)(nil)
 
 var (
 	defaultClient = common.SaneHttpClient()
@@ -30,6 +33,13 @@ var (
 // Use identifiers in the secret preferably, or the provider name.
 func (s Scanner) Keywords() []string {
 	return []string{"parseur"}
+}
+
+func (s Scanner) ShouldScanChunk(chunk sources.Chunk) bool {
+	if m, ok := sources.NewGitSourceMetadata(chunk.SourceType, chunk.SourceMetadata); ok {
+		return !detectors.Conditions.IsLockFile(m.File)
+	}
+	return true
 }
 
 // FromData will find and optionally verify Parseur secrets in a given set of bytes.
