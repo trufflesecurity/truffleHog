@@ -2,11 +2,14 @@ package meraki
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
 )
@@ -97,6 +100,65 @@ func TestMeraki_Pattern(t *testing.T) {
 			if diff := cmp.Diff(expected, actual); diff != "" {
 				t.Errorf("%s diff: (-want +got)\n%s", test.name, diff)
 			}
+		})
+	}
+}
+
+func TestMeraki_Fake(t *testing.T) {
+	// mock response data
+	mockOrganizations := []merakiOrganizations{
+		{ID: "123", Name: "Example Organization 1"},
+		{ID: "456", Name: "Example Organization 2"},
+	}
+	mockResponse, err := json.Marshal(mockOrganizations)
+	if err != nil {
+		t.Fatalf("failed to marshal mock organizations: %v", err)
+	}
+
+	// test cases
+	tests := []struct {
+		name     string
+		client   *http.Client
+		secret   string
+		verified bool
+		wantErr  bool
+	}{
+		{
+			name:     "success - 200 OK",
+			client:   common.ConstantResponseHttpClient(http.StatusOK, string(mockResponse)),
+			secret:   "e9e0f062f587b423bb6cc6328eb786d75b45783e",
+			verified: true,
+			wantErr:  false,
+		},
+		{
+			name:     "fail - 401 UnAuthorized",
+			client:   common.ConstantResponseHttpClient(http.StatusUnauthorized, ""),
+			secret:   "e9e0f062f587b423bb6cc6328eb786d75b45783f",
+			verified: false,
+			wantErr:  false,
+		},
+		{
+			name:     "fail - 400 unexpected status code error",
+			client:   common.ConstantResponseHttpClient(http.StatusBadRequest, ""),
+			secret:   "",
+			verified: false,
+			wantErr:  true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// calling FromData does not work cause APIURLs are hardcoded
+			_, isVerified, verificationErr := verifyMerakiApiKey(context.Background(), test.client, "http://example.com", test.secret)
+			if (verificationErr != nil) != test.wantErr {
+				t.Errorf("[%s] unexpected error: got %v, wantErr: %t", test.name, verificationErr, test.wantErr)
+			}
+
+			if isVerified != test.verified {
+				t.Errorf("[%s] verification status mismatch: got %t, want %t", test.name, isVerified, test.verified)
+			}
+
+			// additional checks if required
 		})
 	}
 }

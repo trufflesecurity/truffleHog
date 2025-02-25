@@ -73,7 +73,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 
 		if verify {
 			client := s.getClient()
-			organizations, isVerified, verificationErr := verifyMerakiApiKey(ctx, client, match)
+			organizations, isVerified, verificationErr := verifyMerakiApiKey(ctx, client, "https://api.meraki.com/api/v1/organizations", match)
 			s1.Verified = isVerified
 			if verificationErr != nil {
 				s1.SetVerificationError(verificationErr)
@@ -101,8 +101,8 @@ func (s Scanner) Type() detectorspb.DetectorType {
 verifyMerakiApiKey verifies if the passed matched api key for meraki is active or not.
 docs: https://developer.cisco.com/meraki/api-v1/authorization/#authorization
 */
-func verifyMerakiApiKey(ctx context.Context, client *http.Client, match string) ([]merakiOrganizations, bool, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.meraki.com/api/v1/organizations", http.NoBody)
+func verifyMerakiApiKey(ctx context.Context, client *http.Client, apiURL, match string) ([]merakiOrganizations, bool, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, http.NoBody)
 	if err != nil {
 		return nil, false, err
 	}
