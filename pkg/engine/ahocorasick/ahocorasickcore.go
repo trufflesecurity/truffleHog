@@ -52,16 +52,6 @@ type spanCalculationParams struct {
 	detector   detectors.Detector
 }
 
-// EntireChunkSpanCalculator is a strategy that calculates the match span to use the entire chunk data.
-// This is used when we want to match against the full length of the provided chunk.
-type EntireChunkSpanCalculator struct{}
-
-// calculateSpan returns the match span as the length of the chunk data,
-// effectively using the entire chunk for matching.
-func (e *EntireChunkSpanCalculator) calculateSpan(params spanCalculationParams) matchSpan {
-	return matchSpan{startOffset: 0, endOffset: int64(len(params.chunkData))}
-}
-
 // adjustableSpanCalculator is a strategy that calculates match spans. It uses a default offset magnitude
 // or values provided by specific detectors to adjust the start and end indices of the span, allowing
 // for more granular control over the match.
