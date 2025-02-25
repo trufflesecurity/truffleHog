@@ -478,8 +478,9 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/noticeable"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/notion"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/nozbeteams"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npmtoken"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npmtokenv2"
+	npm_token_generic "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npm/token/generic"
+	npm_token_new "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npm/token/new"
+	npm_token_uuid "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/npm/token/uuid"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/nugetapikey"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/numverify"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/nutritionix"
@@ -1321,8 +1322,9 @@ func buildDetectorList() []detectors.Detector {
 		&noticeable.Scanner{},
 		&notion.Scanner{},
 		&nozbeteams.Scanner{},
-		&npmtoken.Scanner{},
-		&npmtokenv2.Scanner{},
+		&npm_token_generic.Scanner{},
+		&npm_token_new.Scanner{},
+		&npm_token_uuid.Scanner{},
 		&nugetapikey.Scanner{},
 		&numverify.Scanner{},
 		&nutritionix.Scanner{},

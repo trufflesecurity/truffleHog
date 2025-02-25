@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/feature"
 )
 
@@ -229,4 +231,15 @@ func SaneHttpClientTimeOut(timeout time.Duration) *http.Client {
 	httpClient.Timeout = timeout
 	httpClient.Transport = NewCustomTransport(nil)
 	return httpClient
+}
+
+// ErrIsNoSuchHost returns true if |err| is a determinate DNS lookup error.
+// https://pkg.go.dev/net#DNSError
+//
+// WARNING: some well-known hosts, such as github.com, use a TTL of 0.
+// It is possible for the lookup to fail intermittently under certain circumstances
+// (e.g., local configuration issue or poor network conditions).
+func ErrIsNoSuchHost(err error) bool {
+	var dnsErr *net.DNSError
+	return errors.As(err, &dnsErr) && dnsErr.IsNotFound
 }
