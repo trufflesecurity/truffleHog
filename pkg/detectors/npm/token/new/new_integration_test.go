@@ -1,7 +1,7 @@
 //go:build detectors
 // +build detectors
 
-package npmtoken
+package new
 
 import (
 	"context"
@@ -10,21 +10,21 @@ import (
 	"time"
 
 	"github.com/kylelemons/godebug/pretty"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-func TestNpmToken_FromChunk(t *testing.T) {
+func TestNpmToken_New_FromChunk(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	testSecrets, err := common.GetSecret(ctx, "trufflehog-testing", "detectors2")
 	if err != nil {
 		t.Fatalf("could not get test secrets from GCP: %s", err)
 	}
-	secret := testSecrets.MustGetField("NPMTOKEN")
-	inactiveSecret := testSecrets.MustGetField("NPMTOKEN_INACTIVE")
+	secret := testSecrets.MustGetField("NPMTOKEN_NEW")
+	inactiveSecret := testSecrets.MustGetField("NPMTOKEN_NEW_INACTIVE")
 
 	type args struct {
 		ctx    context.Context
@@ -43,7 +43,7 @@ func TestNpmToken_FromChunk(t *testing.T) {
 			s:    Scanner{},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a npmtoken secret %s within", secret)),
+				data:   []byte(fmt.Sprintf("You can find a npmtoken_new secret %s within", secret)),
 				verify: true,
 			},
 			want: []detectors.Result{
@@ -59,7 +59,7 @@ func TestNpmToken_FromChunk(t *testing.T) {
 			s:    Scanner{},
 			args: args{
 				ctx:    context.Background(),
-				data:   []byte(fmt.Sprintf("You can find a npmtoken secret %s within but not valid", inactiveSecret)), // the secret would satisfy the regex but not pass validation
+				data:   []byte(fmt.Sprintf("You can find a npmtoken_new secret %s within but not valid", inactiveSecret)), // the secret would satisfy the regex but not pass validation
 				verify: true,
 			},
 			want: []detectors.Result{
@@ -87,7 +87,7 @@ func TestNpmToken_FromChunk(t *testing.T) {
 			s := Scanner{}
 			got, err := s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NpmToken.FromData() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NpmToken_New.FromData() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			for i := range got {
@@ -97,7 +97,7 @@ func TestNpmToken_FromChunk(t *testing.T) {
 				got[i].Raw = nil
 			}
 			if diff := pretty.Compare(got, tt.want); diff != "" {
-				t.Errorf("NpmToken.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
+				t.Errorf("NpmToken_New.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
 			}
 		})
 	}
