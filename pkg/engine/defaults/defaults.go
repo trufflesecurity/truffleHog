@@ -217,6 +217,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/disqus"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/ditto"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/dnscheck"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/docker"
 	dockerhubv1 "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/dockerhub/v1"
 	dockerhubv2 "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/dockerhub/v2"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/docparser"
@@ -1049,6 +1050,7 @@ func buildDetectorList() []detectors.Detector {
 		&disqus.Scanner{},
 		&ditto.Scanner{},
 		&dnscheck.Scanner{},
+		&docker.Scanner{},
 		&dockerhubv1.Scanner{},
 		&dockerhubv2.Scanner{},
 		&docparser.Scanner{},
