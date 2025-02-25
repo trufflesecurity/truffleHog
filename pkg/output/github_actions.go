@@ -60,9 +60,14 @@ func (p *GitHubActionsPrinter) Print(_ context.Context, r *detectors.ResultWithM
 	}
 	dedupeCache[key] = struct{}{}
 
-	message := fmt.Sprintf("Found %s %s result 🐷🔑\n", verifiedStatus, out.DetectorType)
+	name := ""
+	if nameValue, ok := r.Result.ExtraData["name"]; ok {
+		name = fmt.Sprintf(" (%s)", nameValue)
+	}
+
+	message := fmt.Sprintf("Found %s %s%s result 🐷🔑\n", verifiedStatus, out.DetectorType, name)
 	if r.DecoderType != detectorspb.DecoderType_PLAIN {
-		message = fmt.Sprintf("Found %s %s result with %s encoding 🐷🔑\n", verifiedStatus, out.DetectorType, out.DecoderType)
+		message = fmt.Sprintf("Found %s %s%s result with %s encoding 🐷🔑\n", verifiedStatus, out.DetectorType, name, out.DecoderType)
 	}
 
 	fmt.Printf("::warning file=%s,line=%d,endLine=%d::%s",
