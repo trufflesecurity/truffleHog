@@ -207,13 +207,15 @@ const DefaultResponseTimeout = 5 * time.Second
 var saneTransport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
-		Timeout:   2 * time.Second,
-		KeepAlive: 5 * time.Second,
+		Timeout:   3 * time.Second,
+		KeepAlive: 30 * time.Second,
 	}).DialContext,
-	MaxIdleConns:          5,
-	IdleConnTimeout:       5 * time.Second,
-	TLSHandshakeTimeout:   3 * time.Second,
+	ForceAttemptHTTP2:     true,
+	MaxIdleConns:          250,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   5 * time.Second,
 	ExpectContinueTimeout: 1 * time.Second,
+	MaxIdleConnsPerHost:   25,
 }
 
 func SaneHttpClient() *http.Client {
