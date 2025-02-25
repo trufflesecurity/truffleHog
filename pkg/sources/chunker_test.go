@@ -28,8 +28,8 @@ func TestNewChunkedReader(t *testing.T) {
 		{
 			name:       "Smaller data than default chunkSize and peekSize",
 			input:      "example input",
-			chunkSize:  ChunkSize,
-			peekSize:   PeekSize,
+			chunkSize:  DefaultChunkSize,
+			peekSize:   DefaultPeekSize,
 			wantChunks: []string{"example input"},
 			wantErr:    false,
 		},
@@ -142,7 +142,7 @@ func BenchmarkChunkReader(b *testing.B) {
 	var bigChunk = make([]byte, 1<<24) // 16MB
 
 	reader := bytes.NewReader(bigChunk)
-	chunkReader := NewChunkReader(WithChunkSize(ChunkSize), WithPeekSize(PeekSize))
+	chunkReader := NewChunkReader(WithChunkSize(DefaultChunkSize), WithPeekSize(DefaultPeekSize))
 
 	b.ReportAllocs()
 	b.ResetTimer()

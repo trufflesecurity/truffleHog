@@ -94,7 +94,7 @@ func TestSource_Scan(t *testing.T) {
 }
 
 func TestScanFile(t *testing.T) {
-	chunkSize := sources.ChunkSize
+	chunkSize := sources.DefaultChunkSize
 	secretPart1 := "SECRET"
 	secretPart2 := "SPLIT"
 	// Split the secret into two parts and pad the rest of the chunk with A's.

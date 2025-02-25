@@ -349,7 +349,7 @@ func (s *Source) processChunk(ctx context.Context, info chunkProcessingInfo, chu
 		return nil
 	}
 
-	chunkReader := sources.NewChunkReader()
+	chunkReader := sources.NewChunkReader(sources.WithFileSize(int(info.size)))
 	chunkResChan := chunkReader(ctx, info.reader)
 
 	for data := range chunkResChan {
