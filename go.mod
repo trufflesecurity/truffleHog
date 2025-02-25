@@ -97,7 +97,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.34.0
 	github.com/trufflesecurity/disk-buffer-reader v0.2.1
 	github.com/wasilibs/go-re2 v1.9.0
-	github.com/xanzy/go-gitlab v0.114.0
+	github.com/xanzy/go-gitlab v0.115.0
 	github.com/xo/dburl v0.23.3
 	go.mongodb.org/mongo-driver v1.17.1
 	go.uber.org/automaxprocs v1.6.0
