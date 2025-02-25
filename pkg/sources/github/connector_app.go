@@ -7,6 +7,8 @@ import (
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v67/github"
+	"github.com/shurcooL/githubv4"
+
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/credentialspb"
@@ -15,13 +17,14 @@ import (
 
 type appConnector struct {
 	apiClient          *github.Client
+	graphqlClient      *githubv4.Client
 	installationClient *github.Client
 	installationID     int64
 }
 
 var _ connector = (*appConnector)(nil)
 
-func newAppConnector(apiEndpoint string, app *credentialspb.GitHubApp) (*appConnector, error) {
+func newAppConnector(ctx context.Context, apiEndpoint string, app *credentialspb.GitHubApp) (*appConnector, error) {
 	installationID, err := strconv.ParseInt(app.InstallationId, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse app installation ID %q: %w", app.InstallationId, err)
@@ -67,8 +70,14 @@ func newAppConnector(apiEndpoint string, app *credentialspb.GitHubApp) (*appConn
 		return nil, fmt.Errorf("could not create API client: %w", err)
 	}
 
+	graphqlClient, err := createGraphqlClient(ctx, httpClient, apiEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	return &appConnector{
 		apiClient:          apiClient,
+		graphqlClient:      graphqlClient,
 		installationClient: installationClient,
 		installationID:     installationID,
 	}, nil
@@ -76,6 +85,10 @@ func newAppConnector(apiEndpoint string, app *credentialspb.GitHubApp) (*appConn
 
 func (c *appConnector) APIClient() *github.Client {
 	return c.apiClient
+}
+
+func (c *appConnector) GraphQLClient() *githubv4.Client {
+	return c.graphqlClient
 }
 
 func (c *appConnector) Clone(ctx context.Context, repoURL string) (string, *gogit.Repository, error) {

@@ -5,6 +5,7 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v67/github"
+	"github.com/shurcooL/githubv4"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
@@ -12,25 +13,37 @@ import (
 )
 
 type unauthenticatedConnector struct {
-	apiClient *github.Client
+	apiClient     *github.Client
+	graphqlClient *githubv4.Client
 }
 
 var _ connector = (*unauthenticatedConnector)(nil)
 
-func newUnauthenticatedConnector(apiEndpoint string) (*unauthenticatedConnector, error) {
+func newUnauthenticatedConnector(ctx context.Context, apiEndpoint string) (*unauthenticatedConnector, error) {
 	const httpTimeoutSeconds = 60
 	httpClient := common.RetryableHTTPClientTimeout(int64(httpTimeoutSeconds))
-	apiClient, err := createGitHubClient(httpClient, apiEndpoint)
+	apiClient, err := createAPIClient(ctx, httpClient, apiEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("could not create API client: %w", err)
 	}
+
+	graphqlClient, err := createGraphqlClient(ctx, httpClient, apiEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	return &unauthenticatedConnector{
-		apiClient: apiClient,
+		apiClient:     apiClient,
+		graphqlClient: graphqlClient,
 	}, nil
 }
 
 func (c *unauthenticatedConnector) APIClient() *github.Client {
 	return c.apiClient
+}
+
+func (c *unauthenticatedConnector) GraphQLClient() *githubv4.Client {
+	return c.graphqlClient
 }
 
 func (c *unauthenticatedConnector) Clone(ctx context.Context, repoURL string) (string, *gogit.Repository, error) {
