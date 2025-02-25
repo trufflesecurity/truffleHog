@@ -1062,7 +1062,7 @@ func (e *Engine) detectChunk(ctx context.Context, data detectableChunk) {
 
 		ctx, cancel := context.WithTimeout(ctx, detectionTimeout)
 		t := time.AfterFunc(detectionTimeout+1*time.Second, func() {
-			ctx.Logger().Error(nil, "a detector ignored the context timeout")
+			ctx.Logger().Error(nil, "a detector ignored the context timeout", "metadata", data.chunk.SourceMetadata.GetData())
 		})
 		results, err := e.verificationCache.FromData(
 			ctx,

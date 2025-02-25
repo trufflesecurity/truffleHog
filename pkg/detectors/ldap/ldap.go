@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	logContext "github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"net"
 	"net/url"
 	"strings"
@@ -55,27 +56,43 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	dataStr := string(data)
 
 	// Check for matches in the URI + username + password format
-	uriMatches := uriPat.FindAllString(dataStr, -1)
-	for _, uri := range uriMatches {
+	uriMatches := map[*url.URL]struct{}{}
+	for _, uri := range uriPat.FindAllString(dataStr, -1) {
 		ldapURL, err := url.Parse(uri)
 		if err != nil {
 			continue
 		}
+		uriMatches[ldapURL] = struct{}{}
+	}
+	usernameMatches := map[string]struct{}{}
+	for _, match := range usernamePat.FindAllStringSubmatch(dataStr, -1) {
+		usernameMatches[match[1]] = struct{}{}
+	}
+	passwordMatches := map[string]struct{}{}
+	for _, match := range passwordPat.FindAllStringSubmatch(dataStr, -1) {
+		m := match[1]
+		// Skip findings where the password only has "*" characters, this is a redacted password
+		if strings.Trim(m, "*") == "" {
+			continue
+		}
+		passwordMatches[m] = struct{}{}
+	}
 
-		usernameMatches := usernamePat.FindAllStringSubmatch(dataStr, -1)
-		for _, username := range usernameMatches {
-			passwordMatches := passwordPat.FindAllStringSubmatch(dataStr, -1)
-			for _, password := range passwordMatches {
+	for ldapURL := range uriMatches {
+		for username := range usernameMatches {
+			for password := range passwordMatches {
 				s1 := detectors.Result{
 					DetectorType: detectorspb.DetectorType_LDAP,
-					Raw:          []byte(strings.Join([]string{ldapURL.String(), username[1], password[1]}, "\t")),
+					Raw:          []byte(strings.Join([]string{ldapURL.String(), username, password}, "\t")),
 				}
 
+				fmt.Printf("Searching: '%s'\n", string(s1.Raw))
+
 				if verify {
-					verificationErr := verifyLDAP(username[1], password[1], ldapURL)
+					verificationErr := verifyLDAP(ldapURL, username, password)
 					s1.Verified = verificationErr == nil
 					if !isErrDeterminate(verificationErr) {
-						s1.SetVerificationError(verificationErr, password[1])
+						s1.SetVerificationError(verificationErr, password)
 					}
 				}
 
@@ -85,11 +102,13 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	}
 
 	// Check for matches for the IAD library format
-	iadMatches := iadPat.FindAllStringSubmatch(dataStr, -1)
-	for _, iad := range iadMatches {
-		uri := iad[1]
-		username := iad[2]
-		password := iad[3]
+	iadMatches := map[string][2]string{}
+	for _, match := range iadPat.FindAllStringSubmatch(dataStr, -1) {
+		iadMatches[match[1]] = [2]string{match[2], match[3]}
+	}
+	for uri, values := range iadMatches {
+		username := values[0]
+		password := values[1]
 
 		ldapURL, err := url.Parse(uri)
 		if err != nil {
@@ -102,7 +121,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			verificationError := verifyLDAP(username, password, ldapURL)
+			verificationError := verifyLDAP(ldapURL, username, password)
 
 			s1.Verified = verificationError == nil
 			if !isErrDeterminate(verificationError) {
@@ -128,40 +147,50 @@ func isErrDeterminate(err error) bool {
 	return true
 }
 
-func verifyLDAP(username, password string, ldapURL *url.URL) error {
+func verifyLDAP(ldapURL *url.URL, username, password string) error {
 	// Tests with non-TLS, TLS, and STARTTLS
 
 	uri := ldapURL.String()
+	var dialer = &net.Dialer{
+		Timeout:   5 * time.Second,
+		Deadline:  time.Now().Add(5 * time.Second),
+		KeepAlive: -1,
+	}
 
+	ctx := logContext.WithValues(logContext.Background(), "url", uri, "username", username, "password", password)
 	switch ldapURL.Scheme {
 	case "ldap":
+		ctx.Logger().Info("[ldap] Dialing")
 		// Non-TLS dial
-		l, err := ldap.DialURL(uri)
+		l, err := ldap.DialURL(uri, ldap.DialWithDialer(dialer))
 		if err != nil {
 			return err
 		}
 		defer l.Close()
 		// Non-TLS verify
-		err = l.Bind(username, password)
-		if err == nil {
+		ctx.Logger().Info("[ldap] Dialing NON-TLS")
+		if err = l.Bind(username, password); err == nil {
 			return nil
 		}
 
 		// STARTTLS
-		err = l.StartTLS(&tls.Config{InsecureSkipVerify: true})
-		if err != nil {
+		ctx.Logger().Info("[ldap] StartTLS")
+		if err = l.StartTLS(&tls.Config{InsecureSkipVerify: true}); err != nil {
 			return err
 		}
 		// STARTTLS verify
+		ctx.Logger().Info("[ldap] Bind")
 		return l.Bind(username, password)
 	case "ldaps":
 		// TLS dial
-		l, err := ldap.DialURL(uri, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
+		ctx.Logger().Info("[ldaps] Dialing")
+		l, err := ldap.DialURL(uri, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: true}), ldap.DialWithDialer(dialer))
 		if err != nil {
 			return err
 		}
 		defer l.Close()
 		// TLS verify
+		ctx.Logger().Info("[ldaps] Bind")
 		return l.Bind(username, password)
 	default:
 		return fmt.Errorf("unknown ldap scheme %q", ldapURL.Scheme)
