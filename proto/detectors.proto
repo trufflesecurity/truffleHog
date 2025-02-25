@@ -1024,6 +1024,7 @@ enum DetectorType {
   Sanity = 1012;
   AzureRefreshToken = 1013;
   AirtableOAuth = 1014;
+  AirtablePersonalAccessToken = 1015;
 }
 
 message Result {

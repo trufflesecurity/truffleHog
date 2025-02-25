@@ -15,6 +15,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/airship"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/airtableapikey"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/airtableoauth"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/airtablepersonalaccesstoken"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/airvisual"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/aiven"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/alchemy"
@@ -839,6 +840,7 @@ func buildDetectorList() []detectors.Detector {
 		&airship.Scanner{},
 		&airtableapikey.Scanner{},
 		&airtableoauth.Scanner{},
+		&airtablepersonalaccesstoken.Scanner{},
 		&airvisual.Scanner{},
 		&aiven.Scanner{},
 		&alchemy.Scanner{},
