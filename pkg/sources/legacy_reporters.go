@@ -12,13 +12,12 @@ type ChanReporter struct {
 	Ch chan<- *Chunk
 }
 
-func (c ChanReporter) ChunkOk(ctx context.Context, chunk Chunk) error {
-	return common.CancellableWrite(ctx, c.Ch, &chunk)
+func (c ChanReporter) ChunkOk(ctx context.Context, chunk Chunk) {
+	_ = common.CancellableWrite(ctx, c.Ch, &chunk)
 }
 
-func (ChanReporter) ChunkErr(ctx context.Context, err error) error {
+func (ChanReporter) ChunkErr(ctx context.Context, err error) {
 	ctx.Logger().Error(err, "error chunking")
-	return ctx.Err()
 }
 
 var _ UnitReporter = (*VisitorReporter)(nil)
@@ -27,18 +26,18 @@ var _ UnitReporter = (*VisitorReporter)(nil)
 // finding units and reporting errors. VisitErr is optional; if unset it will
 // log the error.
 type VisitorReporter struct {
-	VisitUnit func(context.Context, SourceUnit) error
-	VisitErr  func(context.Context, error) error
+	VisitUnit func(context.Context, SourceUnit)
+	VisitErr  func(context.Context, error)
 }
 
-func (v VisitorReporter) UnitOk(ctx context.Context, unit SourceUnit) error {
-	return v.VisitUnit(ctx, unit)
+func (v VisitorReporter) UnitOk(ctx context.Context, unit SourceUnit) {
+	v.VisitUnit(ctx, unit)
 }
 
-func (v VisitorReporter) UnitErr(ctx context.Context, err error) error {
+func (v VisitorReporter) UnitErr(ctx context.Context, err error) {
 	if v.VisitErr == nil {
 		ctx.Logger().Error(err, "error enumerating")
-		return ctx.Err()
+		return
 	}
-	return v.VisitErr(ctx, err)
+	v.VisitErr(ctx, err)
 }

@@ -869,12 +869,10 @@ type countChunkReporter struct {
 	errCount   int
 }
 
-func (m *countChunkReporter) ChunkOk(ctx context.Context, chunk sources.Chunk) error {
+func (m *countChunkReporter) ChunkOk(ctx context.Context, chunk sources.Chunk) {
 	m.chunkCount++
-	return nil
 }
 
-func (m *countChunkReporter) ChunkErr(ctx context.Context, err error) error {
+func (m *countChunkReporter) ChunkErr(ctx context.Context, err error) {
 	m.errCount++
-	return nil
 }

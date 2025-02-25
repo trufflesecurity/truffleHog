@@ -423,9 +423,7 @@ func handleChunksWithError(
 			if len(dataOrErr.Data) > 0 {
 				chunk := *chunkSkel
 				chunk.Data = dataOrErr.Data
-				if err := reporter.ChunkOk(ctx, chunk); err != nil {
-					return fmt.Errorf("error reporting chunk: %w", err)
-				}
+				reporter.ChunkOk(ctx, chunk)
 			}
 		case <-ctx.Done():
 			return ctx.Err()

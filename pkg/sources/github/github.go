@@ -341,9 +341,7 @@ func (s *Source) Chunks(ctx context.Context, chunksChan chan *sources.Chunk, tar
 	// We don't care about handling enumerated values as they happen during
 	// the normal Chunks flow because we enumerate and scan in two steps.
 	noopReporter := sources.VisitorReporter{
-		VisitUnit: func(context.Context, sources.SourceUnit) error {
-			return nil
-		},
+		VisitUnit: func(context.Context, sources.SourceUnit) {},
 	}
 	err := s.Enumerate(ctx, noopReporter)
 	if err != nil {
@@ -361,18 +359,18 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 	seenUnits := make(map[sources.SourceUnit]struct{})
 	// Wrapper reporter to deduplicate and filter found units.
 	dedupeReporter := sources.VisitorReporter{
-		VisitUnit: func(ctx context.Context, su sources.SourceUnit) error {
+		VisitUnit: func(ctx context.Context, su sources.SourceUnit) {
 			// Only report units that passed the user configured filter.
 			name := su.Display()
 			if !s.filteredRepoCache.Exists(name) {
-				return ctx.Err()
+				return
 			}
 			// Only report a unit once.
 			if _, ok := seenUnits[su]; ok {
-				return ctx.Err()
+				return
 			}
 			seenUnits[su] = struct{}{}
-			return reporter.UnitOk(ctx, su)
+			reporter.UnitOk(ctx, su)
 		},
 		VisitErr: reporter.UnitErr,
 	}
@@ -383,13 +381,9 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 		url, _ := s.filteredRepoCache.Get(name)
 		url, err := s.ensureRepoInfoCache(ctx, url, &unitErrorReporter{reporter})
 		if err != nil {
-			if err := dedupeReporter.UnitErr(ctx, err); err != nil {
-				return err
-			}
+			dedupeReporter.UnitErr(ctx, err)
 		}
-		if err := dedupeReporter.UnitOk(ctx, RepoUnit{Name: name, URL: url}); err != nil {
-			return err
-		}
+		dedupeReporter.UnitOk(ctx, RepoUnit{Name: name, URL: url})
 	}
 
 	// I'm not wild about switching on the connector type here (as opposed to dispatching to the connector itself) but
@@ -420,7 +414,7 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 		repo, err := s.ensureRepoInfoCache(ctx, repo, &unitErrorReporter{reporter})
 		if err != nil {
 			ctx.Logger().Error(err, "error caching repo info")
-			_ = dedupeReporter.UnitErr(ctx, fmt.Errorf("error caching repo info: %w", err))
+			dedupeReporter.UnitErr(ctx, fmt.Errorf("error caching repo info: %w", err))
 		}
 		s.repos = append(s.repos, repo)
 	}
@@ -693,9 +687,7 @@ func (s *Source) scanRepo(ctx context.Context, repoURL string, reporter sources.
 			// Ignore "Repository not found" errors.
 			// It's common for GitHub's API to say a repo has a wiki when it doesn't.
 			if !strings.Contains(err.Error(), "not found") {
-				if err := reporter.ChunkErr(ctx, fmt.Errorf("error scanning wiki: %w", err)); err != nil {
-					return err
-				}
+				reporter.ChunkErr(ctx, fmt.Errorf("error scanning wiki: %w", err))
 			}
 
 			// Don't return, it still might be possible to scan comments.
@@ -706,9 +698,7 @@ func (s *Source) scanRepo(ctx context.Context, repoURL string, reporter sources.
 	if s.includeGistComments || s.includeIssueComments || s.includePRComments {
 		if err := s.scanComments(ctx, repoURL, repoInfo, reporter); err != nil {
 			err := fmt.Errorf("error scanning comments: %w", err)
-			if err := reporter.ChunkErr(ctx, err); err != nil {
-				return err
-			}
+			reporter.ChunkErr(ctx, err)
 		}
 	}
 
@@ -745,7 +735,7 @@ var (
 
 // errorReporter is an interface that captures just the error reporting functionality
 type errorReporter interface {
-	Err(ctx context.Context, err error) error
+	Err(ctx context.Context, err error)
 }
 
 // wrapper to adapt UnitReporter to errorReporter
@@ -753,8 +743,8 @@ type unitErrorReporter struct {
 	reporter sources.UnitReporter
 }
 
-func (u unitErrorReporter) Err(ctx context.Context, err error) error {
-	return u.reporter.UnitErr(ctx, err)
+func (u unitErrorReporter) Err(ctx context.Context, err error) {
+	u.reporter.UnitErr(ctx, err)
 }
 
 // wrapper to adapt ChunkReporter to errorReporter
@@ -762,8 +752,8 @@ type chunkErrorReporter struct {
 	reporter sources.ChunkReporter
 }
 
-func (c chunkErrorReporter) Err(ctx context.Context, err error) error {
-	return c.reporter.ChunkErr(ctx, err)
+func (c chunkErrorReporter) Err(ctx context.Context, err error) {
+	c.reporter.ChunkErr(ctx, err)
 }
 
 // handleRateLimit handles GitHub API rate limiting with an optional error reporter.
@@ -814,7 +804,7 @@ func (s *Source) handleRateLimit(ctx context.Context, errIn error, reporters ...
 			ctx.Logger().Info(fmt.Sprintf("exceeded %s rate limit", limitType), "retry_after", retryAfter.String(), "resume_time", rateLimitResumeTime.Format(time.RFC3339))
 			// Only report the error if a reporter was provided
 			for _, reporter := range reporters {
-				_ = reporter.Err(ctx, fmt.Errorf("exceeded %s rate limit", limitType))
+				reporter.Err(ctx, fmt.Errorf("exceeded %s rate limit", limitType))
 			}
 		} else {
 			retryAfter = (5 * time.Minute) + jitter
@@ -874,9 +864,7 @@ func (s *Source) addUserGistsToCache(ctx context.Context, user string, reporter 
 		for _, gist := range gists {
 			s.filteredRepoCache.Set(gist.GetID(), gist.GetGitPullURL())
 			s.cacheGistInfo(gist)
-			if err := reporter.UnitOk(ctx, GistUnit{Name: gist.GetID(), URL: gist.GetGitPullURL()}); err != nil {
-				return err
-			}
+			reporter.UnitOk(ctx, GistUnit{Name: gist.GetID(), URL: gist.GetGitPullURL()})
 		}
 
 		if res == nil || res.NextPage == 0 {
@@ -1184,9 +1172,7 @@ func (s *Source) chunkGistComments(ctx context.Context, gistURL string, gistInfo
 			Verify: s.verify,
 		}
 
-		if err := reporter.ChunkOk(ctx, chunk); err != nil {
-			return err
-		}
+		reporter.ChunkOk(ctx, chunk)
 	}
 	return nil
 }
@@ -1293,9 +1279,7 @@ func (s *Source) chunkIssues(ctx context.Context, repoInfo repoInfo, issues []*g
 			Verify: s.verify,
 		}
 
-		if err := reporter.ChunkOk(ctx, chunk); err != nil {
-			return err
-		}
+		reporter.ChunkOk(ctx, chunk)
 	}
 	return nil
 }
@@ -1360,9 +1344,7 @@ func (s *Source) chunkIssueComments(ctx context.Context, repoInfo repoInfo, comm
 			Verify: s.verify,
 		}
 
-		if err := reporter.ChunkOk(ctx, chunk); err != nil {
-			return err
-		}
+		reporter.ChunkOk(ctx, chunk)
 	}
 	return nil
 }
@@ -1456,9 +1438,7 @@ func (s *Source) chunkPullRequests(ctx context.Context, repoInfo repoInfo, prs [
 			Verify: s.verify,
 		}
 
-		if err := reporter.ChunkOk(ctx, chunk); err != nil {
-			return err
-		}
+		reporter.ChunkOk(ctx, chunk)
 	}
 	return nil
 }
@@ -1492,9 +1472,7 @@ func (s *Source) chunkPullRequestComments(ctx context.Context, repoInfo repoInfo
 			Verify: s.verify,
 		}
 
-		if err := reporter.ChunkOk(ctx, chunk); err != nil {
-			return err
-		}
+		reporter.ChunkOk(ctx, chunk)
 	}
 	return nil
 }

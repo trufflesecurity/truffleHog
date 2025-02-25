@@ -252,52 +252,6 @@ func TestEnumerateReporterErr(t *testing.T) {
 	s := Source{}
 	err = s.Init(ctx, "test enumerate", 0, 0, true, conn, 1)
 	assert.NoError(t, err)
-
-	// Enumerate should always return an error if the reporter returns an
-	// error.
-	reporter := sourcestest.ErrReporter{}
-	err = s.Enumerate(ctx, &reporter)
-	assert.Error(t, err)
-}
-
-func TestChunkUnitReporterErr(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-
-	// Setup test file to chunk.
-	tmpfile, err := os.CreateTemp("", "example.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpfile.Name())
-
-	fileContents := []byte("TestChunkUnit")
-	_, err = tmpfile.Write(fileContents)
-	assert.NoError(t, err)
-	assert.NoError(t, tmpfile.Close())
-
-	conn, err := anypb.New(&sourcespb.Filesystem{})
-	assert.NoError(t, err)
-
-	// Initialize the source.
-	s := Source{}
-	err = s.Init(ctx, "test chunk unit", 0, 0, true, conn, 1)
-	assert.NoError(t, err)
-
-	// Happy path. ChunkUnit should always return an error if the reporter
-	// returns an error.
-	reporter := sourcestest.ErrReporter{}
-	err = s.ChunkUnit(ctx, sources.CommonSourceUnit{
-		ID: tmpfile.Name(),
-	}, &reporter)
-	assert.Error(t, err)
-
-	// Error path. ChunkUnit should always return an error if the reporter
-	// returns an error.
-	err = s.ChunkUnit(ctx, sources.CommonSourceUnit{
-		ID: "/file/not/found",
-	}, &reporter)
-	assert.Error(t, err)
 }
 
 // createTempFile is a helper function to create a temporary file in the given

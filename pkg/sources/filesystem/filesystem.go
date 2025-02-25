@@ -195,21 +195,18 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 	for _, path := range s.paths {
 		fileInfo, err := os.Lstat(filepath.Clean(path))
 		if err != nil {
-			if err := reporter.UnitErr(ctx, err); err != nil {
-				return err
-			}
+			reporter.UnitErr(ctx, err)
 			continue
 		}
 		if !fileInfo.IsDir() {
 			item := sources.CommonSourceUnit{ID: path}
-			if err := reporter.UnitOk(ctx, item); err != nil {
-				return err
-			}
+			reporter.UnitOk(ctx, item)
 			continue
 		}
 		err = fs.WalkDir(os.DirFS(path), ".", func(relativePath string, d fs.DirEntry, err error) error {
 			if err != nil {
-				return reporter.UnitErr(ctx, err)
+				reporter.UnitErr(ctx, err)
+				return nil
 			}
 			if d.IsDir() {
 				return nil
@@ -219,12 +216,11 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 				return nil
 			}
 			item := sources.CommonSourceUnit{ID: fullPath}
-			return reporter.UnitOk(ctx, item)
+			reporter.UnitOk(ctx, item)
+			return nil
 		})
 		if err != nil {
-			if err := reporter.UnitErr(ctx, err); err != nil {
-				return err
-			}
+			reporter.UnitErr(ctx, err)
 		}
 	}
 	return nil
@@ -238,7 +234,8 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 	cleanPath := filepath.Clean(path)
 	fileInfo, err := os.Lstat(cleanPath)
 	if err != nil {
-		return reporter.ChunkErr(ctx, fmt.Errorf("unable to get file info: %w", err))
+		reporter.ChunkErr(ctx, fmt.Errorf("unable to get file info: %w", err))
+		return nil
 	}
 
 	ch := make(chan *sources.Chunk)
@@ -259,16 +256,14 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 		if chunk == nil {
 			continue
 		}
-		if err := reporter.ChunkOk(ctx, *chunk); err != nil {
-			return err
-		}
+		reporter.ChunkOk(ctx, *chunk)
 	}
 
 	if scanErr != nil && !errors.Is(scanErr, io.EOF) {
 		if !errors.Is(scanErr, skipSymlinkErr) {
 			logger.Error(scanErr, "error scanning filesystem")
 		}
-		return reporter.ChunkErr(ctx, scanErr)
+		reporter.ChunkErr(ctx, scanErr)
 	}
 	return nil
 }

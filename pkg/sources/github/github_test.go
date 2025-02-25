@@ -606,10 +606,9 @@ func TestEnumerate(t *testing.T) {
 
 	var reportedRepos []string
 	reporter := sources.VisitorReporter{
-		VisitUnit: func(ctx context.Context, su sources.SourceUnit) error {
+		VisitUnit: func(ctx context.Context, su sources.SourceUnit) {
 			url, _ := su.SourceUnitID()
 			reportedRepos = append(reportedRepos, url)
-			return nil
 		},
 	}
 
@@ -961,8 +960,6 @@ func Test_ScanMultipleTargets_MultipleErrors(t *testing.T) {
 
 func noopReporter() sources.UnitReporter {
 	return sources.VisitorReporter{
-		VisitUnit: func(context.Context, sources.SourceUnit) error {
-			return nil
-		},
+		VisitUnit: func(context.Context, sources.SourceUnit) {},
 	}
 }

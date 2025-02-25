@@ -649,16 +649,15 @@ type mgrUnitReporter struct {
 
 // UnitOk implements the UnitReporter interface by recording the unit in the
 // report and sending it on the SourceUnit channel.
-func (s *mgrUnitReporter) UnitOk(ctx context.Context, unit SourceUnit) error {
+func (s *mgrUnitReporter) UnitOk(ctx context.Context, unit SourceUnit) {
 	s.report.ReportUnit(unit)
-	return common.CancellableWrite(ctx, s.unitCh, unit)
+	_ = common.CancellableWrite(ctx, s.unitCh, unit)
 }
 
 // UnitErr implements the UnitReporter interface by recording the error in the
 // report.
-func (s *mgrUnitReporter) UnitErr(ctx context.Context, err error) error {
+func (s *mgrUnitReporter) UnitErr(ctx context.Context, err error) {
 	s.report.ReportError(err)
-	return nil
 }
 
 // mgrChunkReporter implements the ChunkReporter interface.
@@ -672,14 +671,13 @@ type mgrChunkReporter struct {
 
 // ChunkOk implements the ChunkReporter interface by recording the chunk and
 // its associated unit in the report and sending it on the Chunk channel.
-func (s *mgrChunkReporter) ChunkOk(ctx context.Context, chunk Chunk) error {
+func (s *mgrChunkReporter) ChunkOk(ctx context.Context, chunk Chunk) {
 	s.report.ReportChunk(s.unit, &chunk)
-	return common.CancellableWrite(ctx, s.chunkCh, &chunk)
+	_ = common.CancellableWrite(ctx, s.chunkCh, &chunk)
 }
 
 // ChunkErr implements the ChunkReporter interface by recording the error and
 // its associated unit in the report.
-func (s *mgrChunkReporter) ChunkErr(ctx context.Context, err error) error {
+func (s *mgrChunkReporter) ChunkErr(ctx context.Context, err error) {
 	s.report.ReportError(ChunkError{s.unit, err})
-	return nil
 }

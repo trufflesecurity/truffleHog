@@ -253,10 +253,9 @@ func (s *Source) Chunks(ctx context.Context, chunksChan chan *sources.Chunk, tar
 			ctx.Logger().Error(err, "could not compile include/exclude repo glob", "glob", pattern)
 		})
 		reporter := sources.VisitorReporter{
-			VisitUnit: func(ctx context.Context, unit sources.SourceUnit) error {
+			VisitUnit: func(ctx context.Context, unit sources.SourceUnit) {
 				id, _ := unit.SourceUnitID()
 				repos = append(repos, id)
-				return ctx.Err()
 			},
 		}
 		if err := s.getAllProjectRepos(ctx, apiClient, ignoreRepo, reporter); err != nil {
@@ -380,10 +379,9 @@ func (s *Source) Validate(ctx context.Context) []error {
 	// Query GitLab for the list of configured repos.
 	var repos []string
 	visitor := sources.VisitorReporter{
-		VisitUnit: func(ctx context.Context, unit sources.SourceUnit) error {
+		VisitUnit: func(ctx context.Context, unit sources.SourceUnit) {
 			id, _ := unit.SourceUnitID()
 			repos = append(repos, id)
-			return nil
 		},
 	}
 	if err := s.getAllProjectRepos(ctx, apiClient, ignoreProject, visitor); err != nil {
@@ -494,9 +492,7 @@ func (s *Source) getAllProjectRepos(
 					"parse_error", err)
 
 				err = fmt.Errorf("could not parse url %q given by project: %w", proj.HTTPURLToRepo, err)
-				if err := reporter.UnitErr(ctx, err); err != nil {
-					return err
-				}
+				reporter.UnitErr(ctx, err)
 				continue
 			}
 			// Report the unit.
@@ -504,9 +500,7 @@ func (s *Source) getAllProjectRepos(
 			unit := git.SourceUnit{Kind: git.UnitRepo, ID: proj.HTTPURLToRepo}
 			gitlabReposEnumerated.WithLabelValues(s.name).Inc()
 			projectsWithNamespace = append(projectsWithNamespace, proj.NameWithNamespace)
-			if err := reporter.UnitOk(ctx, unit); err != nil {
-				return err
-			}
+			reporter.UnitOk(ctx, unit)
 		}
 		return nil
 	}
@@ -522,9 +516,7 @@ func (s *Source) getAllProjectRepos(
 		userProjects, res, err := apiClient.Projects.ListUserProjects(user.ID, projectQueryOptions)
 		if err != nil {
 			err = fmt.Errorf("received error on listing user projects: %w", err)
-			if err := reporter.UnitErr(ctx, err); err != nil {
-				return err
-			}
+			reporter.UnitErr(ctx, err)
 			break
 		}
 		ctx.Logger().V(3).Info("listed user projects", "count", len(userProjects))
@@ -558,9 +550,7 @@ func (s *Source) getAllProjectRepos(
 		groupList, res, err := apiClient.Groups.ListGroups(&listGroupsOptions)
 		if err != nil {
 			err = fmt.Errorf("received error on listing groups, you probably don't have permissions to do that: %w", err)
-			if err := reporter.UnitErr(ctx, err); err != nil {
-				return err
-			}
+			reporter.UnitErr(ctx, err)
 			break
 		}
 		ctx.Logger().V(3).Info("listed groups", "count", len(groupList))
@@ -589,9 +579,7 @@ func (s *Source) getAllProjectRepos(
 					"received error on listing group projects for %q, you probably don't have permissions to do that: %w",
 					group.FullPath, err,
 				)
-				if err := reporter.UnitErr(ctx, err); err != nil {
-					return err
-				}
+				reporter.UnitErr(ctx, err)
 				break
 			}
 			ctx.Logger().V(3).Info("listed group projects", "count", len(grpPrjs))
@@ -788,9 +776,7 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 	repos, errs := normalizeRepos(s.repos)
 	for _, repoErr := range errs {
 		ctx.Logger().Info("error normalizing repo", "error", repoErr)
-		if err := reporter.UnitErr(ctx, repoErr); err != nil {
-			return err
-		}
+		reporter.UnitErr(ctx, repoErr)
 	}
 
 	// End early if we had errors getting specified repos but none were validated.
@@ -803,9 +789,7 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 		gitlabReposEnumerated.WithLabelValues(s.name).Set(0)
 		for _, repo := range repos {
 			unit := git.SourceUnit{Kind: git.UnitRepo, ID: repo}
-			if err := reporter.UnitOk(ctx, unit); err != nil {
-				return err
-			}
+			reporter.UnitOk(ctx, unit)
 			gitlabReposEnumerated.WithLabelValues(s.name).Inc()
 		}
 		return nil
@@ -814,8 +798,7 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 	// Otherwise, enumerate all repos.
 	ignoreRepo := buildIgnorer(s.includeRepos, s.ignoreRepos, func(err error, pattern string) {
 		ctx.Logger().Error(err, "could not compile include/exclude repo glob", "glob", pattern)
-		// TODO: Handle error returned from UnitErr.
-		_ = reporter.UnitErr(ctx, fmt.Errorf("could not compile include/exclude repo glob: %w", err))
+		reporter.UnitErr(ctx, fmt.Errorf("could not compile include/exclude repo glob: %w", err))
 	})
 	return s.getAllProjectRepos(ctx, apiClient, ignoreRepo, reporter)
 }

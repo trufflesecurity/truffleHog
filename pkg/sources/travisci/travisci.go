@@ -101,10 +101,7 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 			if repoPage == 0 {
 				return fmt.Errorf("error listing repositories: %w", err)
 			}
-			err = reporter.UnitErr(ctx, err)
-			if err != nil {
-				return fmt.Errorf("error reporting error: %w", err)
-			}
+			reporter.UnitErr(ctx, err)
 		}
 
 		if len(repositories) == 0 {
@@ -112,13 +109,10 @@ func (s *Source) Enumerate(ctx context.Context, reporter sources.UnitReporter) e
 		}
 
 		for _, repo := range repositories {
-			err = reporter.UnitOk(ctx, sources.CommonSourceUnit{
+			reporter.UnitOk(ctx, sources.CommonSourceUnit{
 				ID:   strconv.Itoa(int(*repo.Id)),
 				Kind: "repo",
 			})
-			if err != nil {
-				return fmt.Errorf("error reporting unit: %w", err)
-			}
 			ctx.Logger().V(2).Info("enumerated repository", "id", repo.Id, "name", repo.Name)
 		}
 	}
@@ -145,9 +139,7 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 			Offset: buildPage * pageSize,
 		})
 		if err != nil {
-			if err := reporter.ChunkErr(ctx, err); err != nil {
-				return err
-			}
+			reporter.ChunkErr(ctx, err)
 			buildPageErrs++
 			if buildPageErrs >= 5 {
 				return fmt.Errorf("encountered too many errors listing builds, aborting")
@@ -164,9 +156,7 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 		for _, build := range builds {
 			jobs, _, err := s.client.Jobs.ListByBuild(ctx, *build.Id)
 			if err != nil {
-				if err := reporter.ChunkErr(ctx, err); err != nil {
-					return err
-				}
+				reporter.ChunkErr(ctx, err)
 				continue
 			}
 
@@ -177,9 +167,7 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 			for _, job := range jobs {
 				log, _, err := s.client.Logs.FindByJobId(ctx, *job.Id)
 				if err != nil {
-					if err := reporter.ChunkErr(ctx, err); err != nil {
-						return err
-					}
+					reporter.ChunkErr(ctx, err)
 					continue
 				}
 
@@ -206,9 +194,7 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 					Verify: s.verify,
 				}
 
-				if err := reporter.ChunkOk(ctx, chunk); err != nil {
-					return err
-				}
+				reporter.ChunkOk(ctx, chunk)
 
 				if s.returnAfterFirstChunk {
 					return nil

@@ -785,12 +785,11 @@ func getGitCommitHash(t *testing.T, gitDir string) string {
 
 type mockReporter struct{ reportedChunks int }
 
-func (m *mockReporter) ChunkOk(context.Context, sources.Chunk) error {
+func (m *mockReporter) ChunkOk(context.Context, sources.Chunk) {
 	m.reportedChunks++
-	return nil
 }
 
-func (m *mockReporter) ChunkErr(context.Context, error) error { return nil }
+func (m *mockReporter) ChunkErr(context.Context, error) {}
 
 func TestHandleChunksWithError(t *testing.T) {
 	tests := []struct {

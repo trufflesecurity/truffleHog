@@ -154,9 +154,7 @@ func (s *Source) getReposByOrgOrUser(ctx context.Context, name string, reporter 
 	if err == nil {
 		return organization, nil
 	} else if !isGitHub404Error(err) {
-		if err := reporter.UnitErr(ctx, fmt.Errorf("error getting repos by org: %w", err)); err != nil {
-			return unknown, err
-		}
+		reporter.UnitErr(ctx, fmt.Errorf("error getting repos by org: %w", err))
 		return unknown, err
 	}
 
@@ -221,9 +219,7 @@ func (s *Source) processRepos(ctx context.Context, target string, reporter sourc
 			s.totalRepoSize += r.GetSize()
 			s.filteredRepoCache.Set(repoName, repoURL)
 			s.cacheRepoInfo(r)
-			if err := reporter.UnitOk(ctx, RepoUnit{Name: repoName, URL: repoURL}); err != nil {
-				return err
-			}
+			reporter.UnitOk(ctx, RepoUnit{Name: repoName, URL: repoURL})
 			logger.V(3).Info("repo attributes", "name", repoName, "kb_size", r.GetSize(), "repo_url", repoURL)
 		}
 

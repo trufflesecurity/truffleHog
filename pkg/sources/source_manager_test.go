@@ -35,8 +35,7 @@ func (d *DummySource) GetProgress() *Progress { return nil }
 // Interface to easily test different chunking methods.
 type chunker interface {
 	Chunks(context.Context, chan *Chunk, ...ChunkingTarget) error
-	ChunkUnit(ctx context.Context, unit SourceUnit, reporter ChunkReporter) error
-	Enumerate(ctx context.Context, reporter UnitReporter) error
+	SourceUnitEnumChunker
 }
 
 // Chunk method that writes count bytes to the channel before returning.
@@ -71,15 +70,14 @@ func (c countChunk) Display() string {
 
 func (c *counterChunker) Enumerate(ctx context.Context, reporter UnitReporter) error {
 	for i := 0; i < c.count; i++ {
-		if err := reporter.UnitOk(ctx, countChunk(byte(i))); err != nil {
-			return err
-		}
+		reporter.UnitOk(ctx, countChunk(byte(i)))
 	}
 	return nil
 }
 
 func (c *counterChunker) ChunkUnit(ctx context.Context, unit SourceUnit, reporter ChunkReporter) error {
-	return reporter.ChunkOk(ctx, Chunk{Data: []byte{byte(unit.(countChunk))}})
+	reporter.ChunkOk(ctx, Chunk{Data: []byte{byte(unit.(countChunk))}})
+	return nil
 }
 
 // Chunk method that always returns an error.
@@ -179,9 +177,8 @@ func TestSourceManagerEnumerate(t *testing.T) {
 	assert.NoError(t, err)
 	var enumeratedUnits []SourceUnit
 	reporter := visitorUnitReporter{
-		ok: func(_ context.Context, unit SourceUnit) error {
+		ok: func(_ context.Context, unit SourceUnit) {
 			enumeratedUnits = append(enumeratedUnits, unit)
-			return nil
 		},
 	}
 	for i := 0; i < 3; i++ {
@@ -216,12 +213,12 @@ func TestSourceManagerScan(t *testing.T) {
 }
 
 type visitorUnitReporter struct {
-	ok  func(context.Context, SourceUnit) error
-	err func(context.Context, error) error
+	ok  func(context.Context, SourceUnit)
+	err func(context.Context, error)
 }
 
-func (v visitorUnitReporter) UnitOk(ctx context.Context, u SourceUnit) error { return v.ok(ctx, u) }
-func (v visitorUnitReporter) UnitErr(ctx context.Context, err error) error   { return v.err(ctx, err) }
+func (v visitorUnitReporter) UnitOk(ctx context.Context, u SourceUnit) { v.ok(ctx, u) }
+func (v visitorUnitReporter) UnitErr(ctx context.Context, err error)   { v.err(ctx, err) }
 
 type unitChunk struct {
 	unit   string
@@ -244,9 +241,7 @@ func (c *unitChunker) Chunks(ctx context.Context, ch chan *Chunk, _ ...ChunkingT
 }
 func (c *unitChunker) Enumerate(ctx context.Context, rep UnitReporter) error {
 	for _, step := range c.steps {
-		if err := rep.UnitOk(ctx, CommonSourceUnit{ID: step.unit}); err != nil {
-			return err
-		}
+		rep.UnitOk(ctx, CommonSourceUnit{ID: step.unit})
 	}
 	return nil
 }
@@ -257,16 +252,12 @@ func (c *unitChunker) ChunkUnit(ctx context.Context, unit SourceUnit, rep ChunkR
 			continue
 		}
 		if step.err != "" {
-			if err := rep.ChunkErr(ctx, fmt.Errorf("%s", step.err)); err != nil {
-				return err
-			}
+			rep.ChunkErr(ctx, fmt.Errorf("%s", step.err))
 		}
 		if step.output == "" {
 			continue
 		}
-		if err := rep.ChunkOk(ctx, Chunk{Data: []byte(step.output)}); err != nil {
-			return err
-		}
+		rep.ChunkOk(ctx, Chunk{Data: []byte(step.output)})
 	}
 	return nil
 }
