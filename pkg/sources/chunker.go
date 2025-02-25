@@ -16,12 +16,27 @@ const (
 	PeekSize = 3 * 1024
 	// TotalChunkSize is the total size of a chunk with peek data.
 	TotalChunkSize = ChunkSize + PeekSize
+
+	// smallChunkThresholdRatio represents the ratio of the chunk size
+	// below which a chunk is considered "small" and will be optimized
+	// by creating a smaller byte slice to only accommodate the data.
+	// This prevents a mostly empty buffer, saving memory, reducing the
+	// application's memory footprint, and allowing the garbage collector
+	// to reclaim the extra space. It could also improve cache efficiency,
+	// though most operations use the slice length rather than capacity.
+	// It's expressed as a value between 0 and 1.
+	smallChunkThresholdRatio = 0.3
 )
 
 type chunkReaderConfig struct {
 	chunkSize int
 	totalSize int
 	peekSize  int
+
+	// smallChunkThreshold is the size below which a chunk is considered "small"
+	// and will be optimized by creating a new, smaller slice.
+	// Chunks larger than this threshold will use the original, larger slice.
+	smallChunkThreshold int
 }
 
 // ConfigOption is a function that configures a chunker.
@@ -29,16 +44,12 @@ type ConfigOption func(*chunkReaderConfig)
 
 // WithChunkSize sets the chunk size.
 func WithChunkSize(size int) ConfigOption {
-	return func(c *chunkReaderConfig) {
-		c.chunkSize = size
-	}
+	return func(c *chunkReaderConfig) { c.chunkSize = size }
 }
 
 // WithPeekSize sets the peek size.
 func WithPeekSize(size int) ConfigOption {
-	return func(c *chunkReaderConfig) {
-		c.peekSize = size
-	}
+	return func(c *chunkReaderConfig) { c.peekSize = size }
 }
 
 // ChunkResult is the output unit of a ChunkReader,
@@ -71,10 +82,12 @@ func NewChunkReader(opts ...ConfigOption) ChunkReader {
 }
 
 func applyOptions(opts []ConfigOption) *chunkReaderConfig {
+	threshold := float64(ChunkSize+PeekSize) * smallChunkThresholdRatio
 	// Set defaults.
 	config := &chunkReaderConfig{
-		chunkSize: ChunkSize, // default
-		peekSize:  PeekSize,  // default
+		chunkSize:           ChunkSize, // default
+		peekSize:            PeekSize,  // default
+		smallChunkThreshold: int(threshold),
 	}
 
 	for _, opt := range opts {
@@ -123,8 +136,15 @@ func readInChunks(ctx context.Context, reader io.Reader, config *chunkReaderConf
 			n, err := io.ReadFull(chunkReader, chunkBytes)
 			if n > 0 {
 				peekData, _ := chunkReader.Peek(config.totalSize - n)
-				chunkBytes = append(chunkBytes[:n], peekData...)
-				chunkRes.data = chunkBytes
+				if n+len(peekData) < config.smallChunkThreshold {
+					optimizedChunk := make([]byte, n+len(peekData))
+					copy(optimizedChunk, chunkBytes[:n])
+					copy(optimizedChunk[n:], peekData)
+					chunkRes.data = optimizedChunk
+				} else {
+					chunkBytes = append(chunkBytes[:n], peekData...)
+					chunkRes.data = chunkBytes
+				}
 			}
 
 			// If there is an error other than EOF, or if we have read some bytes, send the chunk.
