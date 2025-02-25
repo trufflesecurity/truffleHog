@@ -141,6 +141,9 @@ func verifyMatch(ctx context.Context, credBytes []byte) (bool, error) {
 	}
 
 	if _, err = credentials.TokenSource.Token(); err != nil {
+		if strings.Contains(err.Error(), "invalid_grant") {
+			return false, nil
+		}
 		return false, err
 	}
 	return true, nil
