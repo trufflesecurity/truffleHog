@@ -881,12 +881,22 @@ type chunkSecretKey struct {
 	detectorKey ahocorasick.DetectorKey
 }
 
-func likelyDuplicate(ctx context.Context, val chunkSecretKey, dupes map[chunkSecretKey]struct{}) bool {
-	const similarityThreshold = 0.9
+const similarityThreshold = 0.9
 
-	valStr := val.secret
+func likelyDuplicate(ctx context.Context, val chunkSecretKey, dupes map[chunkSecretKey]struct{}) (bool, detectorspb.DetectorType) {
+	var (
+		detectorType detectorspb.DetectorType
+		valStr       = val.secret
+		valRedacted  string
+	)
+	if len(valStr) < 3 {
+		return false, detectorType
+	} else {
+		valRedacted = valStr[:3] + "..."
+	}
 	for dupeKey := range dupes {
 		dupe := dupeKey.secret
+		detectorType = dupeKey.detectorKey.Type()
 		// Avoid comparing strings of vastly different lengths.
 		if len(dupe)*10 < len(valStr)*9 || len(dupe)*10 > len(valStr)*11 {
 			continue
@@ -899,24 +909,41 @@ func likelyDuplicate(ctx context.Context, val chunkSecretKey, dupes map[chunkSec
 		}
 
 		if valStr == dupe {
-			ctx.Logger().V(2).Info(
+			ctx.Logger().V(1).Info(
 				"found exact duplicate",
+				"val", valRedacted,
+				"val_detector", val.detectorKey.Type(),
+				"dupe_detector", dupeKey.detectorKey.Type(),
 			)
-			return true
+			return true, detectorType
 		}
 
 		similarity := strutil.Similarity(valStr, dupe, metrics.NewLevenshtein())
 
 		// close enough
 		if similarity > similarityThreshold {
-			ctx.Logger().V(2).Info(
+			ctx.Logger().V(1).Info(
 				"found similar duplicate",
+				"val", valRedacted,
+				"val_detector", val.detectorKey.Type(),
+				"dupe_detector", dupeKey.detectorKey.Type(),
 			)
-			return true
+			return true, detectorType
 		}
 	}
-	return false
+	return false, detectorType
 }
+
+type detectorOverlapKey struct {
+	DetectorA detectorspb.DetectorType
+	DetectorB detectorspb.DetectorType
+}
+
+func (d detectorOverlapKey) Equal(other detectorOverlapKey) bool {
+	return (d.DetectorA == other.DetectorA && d.DetectorB == other.DetectorB) || (d.DetectorA == other.DetectorB && d.DetectorB == other.DetectorA)
+}
+
+var detectorOverlaps = make(map[detectorOverlapKey]struct{})
 
 func (e *Engine) verificationOverlapWorker(ctx context.Context) {
 	var wgDetect sync.WaitGroup
@@ -976,7 +1003,20 @@ func (e *Engine) verificationOverlapWorker(ctx context.Context) {
 						continue
 					}
 
-					if likelyDuplicate(ctx, key, chunkSecrets) {
+					if ok, t := likelyDuplicate(ctx, key, chunkSecrets); ok {
+						// Record the overlap between detectors.
+						overlapKey := detectorOverlapKey{
+							key.detectorKey.Type(),
+							t,
+						}
+						if _, ok := detectorOverlaps[overlapKey]; !ok {
+							detectorOverlaps[overlapKey] = struct{}{}
+							ctx.Logger().Info(
+								"WARNING: A result will not be verified because more than one detector matches. "+
+									"You can override this behavior by using the --allow-verification-overlap flag",
+								"detectors", []string{overlapKey.DetectorA.String(), overlapKey.DetectorB.String()})
+						}
+
 						// This indicates that the same secret was found by multiple detectors.
 						// We should NOT VERIFY this chunk's data.
 						if e.verificationOverlapTracker != nil {
