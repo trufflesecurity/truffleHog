@@ -16,11 +16,11 @@ var (
 	},
 		[]string{"source_name"})
 
-	dockerHistoryEntriesScanned = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	dockerImageConfigsScanned = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: common.MetricsNamespace,
 		Subsystem: common.MetricsSubsystem,
-		Name:      "docker_history_entries_scanned",
-		Help:      "Total number of Docker image history entries scanned.",
+		Name:      "docker_image_configs_scanned",
+		Help:      "Total number of Docker image config metadata entries scanned.",
 	},
 		[]string{"source_name"})
 

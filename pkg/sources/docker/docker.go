@@ -83,14 +83,6 @@ type imageInfo struct {
 	tag   string
 }
 
-type historyEntryInfo struct {
-	index       int
-	entry       v1.History
-	layerDigest string
-	base        string
-	tag         string
-}
-
 type layerInfo struct {
 	digest v1.Hash
 	base   string
@@ -117,29 +109,21 @@ func (s *Source) Chunks(ctx context.Context, chunksChan chan *sources.Chunk, _ .
 
 		ctx = context.WithValues(ctx, "image", imgInfo.base, "tag", imgInfo.tag)
 
-		ctx.Logger().V(2).Info("scanning image history")
+		ctx.Logger().V(2).Info("scanning image config")
+
+		if err := s.processConfig(ctx, imgInfo, chunksChan); err != nil {
+			ctx.Logger().Error(err, "error processing image config")
+			return nil
+		}
+		dockerImageConfigsScanned.WithLabelValues(s.name).Inc()
+
+		ctx.Logger().V(2).Info("scanning image layers")
 
 		layers, err := imgInfo.image.Layers()
 		if err != nil {
 			ctx.Logger().Error(err, "error getting image layers")
 			return nil
 		}
-
-		historyEntries, err := getHistoryEntries(ctx, imgInfo, layers)
-		if err != nil {
-			ctx.Logger().Error(err, "error getting image history entries")
-			return nil
-		}
-
-		for _, historyEntry := range historyEntries {
-			if err := s.processHistoryEntry(ctx, historyEntry, chunksChan); err != nil {
-				ctx.Logger().Error(err, "error processing history entry")
-				return nil
-			}
-			dockerHistoryEntriesScanned.WithLabelValues(s.name).Inc()
-		}
-
-		ctx.Logger().V(2).Info("scanning image layers")
 
 		for _, layer := range layers {
 			workers.Go(func() error {
@@ -208,57 +192,18 @@ func (s *Source) processImage(ctx context.Context, image string) (imageInfo, err
 	return imgInfo, nil
 }
 
-// getHistoryEntries collates an image's configuration history together with the
-// corresponding layer digests for any non-empty layers.
-func getHistoryEntries(ctx context.Context, imgInfo imageInfo, layers []v1.Layer) ([]historyEntryInfo, error) {
-	config, err := imgInfo.image.ConfigFile()
+// processConfig processes the image configuration metadata.
+// The easiest way to view this metadata is by using "crane config [image]" https://github.com/google/go-containerregistry/tree/main/cmd/crane
+func (s *Source) processConfig(ctx context.Context, imgInfo imageInfo, chunksChan chan *sources.Chunk) error {
+	imgConfig, err := imgInfo.image.RawConfigFile()
 	if err != nil {
-		return nil, err
+		ctx.Logger().Error(err, "error getting image config")
+		return err
 	}
 
-	history := config.History
-	entries := make([]historyEntryInfo, len(history))
-
-	layerIndex := 0
-	for historyIndex, entry := range history {
-		e := historyEntryInfo{
-			base:  imgInfo.base,
-			tag:   imgInfo.tag,
-			entry: entry,
-			index: historyIndex,
-		}
-
-		// Associate with a layer if possible -- failing to do this will not affect
-		// the scan, just remove some traceability.
-		if !entry.EmptyLayer {
-			if layerIndex < len(layers) {
-				digest, err := layers[layerIndex].Digest()
-
-				if err == nil {
-					e.layerDigest = digest.String()
-				} else {
-					ctx.Logger().V(2).Error(err, "cannot associate layer with history entry: layer digest failed",
-						"layerIndex", layerIndex, "historyIndex", historyIndex)
-				}
-			} else {
-				ctx.Logger().V(2).Info("cannot associate layer with history entry: no correlated layer exists at this index",
-					"layerIndex", layerIndex, "historyIndex", historyIndex)
-			}
-
-			layerIndex++
-		}
-
-		entries[historyIndex] = e
-	}
-
-	return entries, nil
-}
-
-// processHistoryEntry processes a history entry from the image configuration metadata.
-func (s *Source) processHistoryEntry(ctx context.Context, historyInfo historyEntryInfo, chunksChan chan *sources.Chunk) error {
 	// Make up an identifier for this entry that is moderately sensible. There is
 	// no file name to use here, so the path tries to be a little descriptive.
-	entryPath := fmt.Sprintf("image-metadata:history:%d:created-by", historyInfo.index)
+	entryPath := "image-metadata:config"
 
 	chunk := &sources.Chunk{
 		SourceType: s.Type(),
@@ -268,17 +213,14 @@ func (s *Source) processHistoryEntry(ctx context.Context, historyInfo historyEnt
 			Data: &source_metadatapb.MetaData_Docker{
 				Docker: &source_metadatapb.Docker{
 					File:  entryPath,
-					Image: historyInfo.base,
-					Tag:   historyInfo.tag,
-					Layer: historyInfo.layerDigest,
+					Image: imgInfo.base,
+					Tag:   imgInfo.tag,
 				},
 			},
 		},
 		Verify: s.verify,
-		Data:   []byte(historyInfo.entry.CreatedBy),
+		Data:   imgConfig,
 	}
-
-	ctx.Logger().V(2).Info("scanning image history entry", "index", historyInfo.index, "layer", historyInfo.layerDigest)
 
 	return common.CancellableWrite(ctx, chunksChan, chunk)
 }
