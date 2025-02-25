@@ -1,7 +1,7 @@
 //go:build detectors
 // +build detectors
 
-package azuredevopspersonalaccesstoken
+package azure_devops
 
 import (
 	"context"
