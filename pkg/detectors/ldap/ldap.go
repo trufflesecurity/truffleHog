@@ -72,7 +72,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
-					verificationErr := verifyLDAP(username[1], password[1], ldapURL)
+					verificationErr := verifyLDAP(username[1], password[1], ldapURL, false)
 					s1.Verified = verificationErr == nil
 					if !isErrDeterminate(verificationErr) {
 						s1.SetVerificationError(verificationErr, password[1])
@@ -102,8 +102,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			verificationError := verifyLDAP(username, password, ldapURL)
-
+			verificationError := verifyLDAP(username, password, ldapURL, true)
 			s1.Verified = verificationError == nil
 			if !isErrDeterminate(verificationError) {
 				s1.SetVerificationError(verificationError, password)
@@ -128,7 +127,7 @@ func isErrDeterminate(err error) bool {
 	return true
 }
 
-func verifyLDAP(username, password string, ldapURL *url.URL) error {
+func verifyLDAP(username, password string, ldapURL *url.URL, iad bool) error {
 	// Tests with non-TLS, TLS, and STARTTLS
 
 	uri := ldapURL.String()
@@ -153,7 +152,20 @@ func verifyLDAP(username, password string, ldapURL *url.URL) error {
 			return err
 		}
 		// STARTTLS verify
-		return l.Bind(username, password)
+		bindDN := username
+		err = l.Bind(bindDN, password)
+		if err == nil {
+			return nil
+		}
+
+		if iad && err != nil {
+			// if we get a previous error we need to check if we can
+			// extract the full DN from the uri
+			// otherwise we will get an error for the IAS format
+			splits := strings.Split(uri, "/")
+			bindDN = splits[len(splits)-1]
+		}
+		return l.Bind(bindDN, password)
 	case "ldaps":
 		// TLS dial
 		l, err := ldap.DialURL(uri, ldap.DialWithTLSConfig(&tls.Config{InsecureSkipVerify: true}))
