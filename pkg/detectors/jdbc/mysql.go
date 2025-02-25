@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	logContext "github.com/trufflesecurity/trufflehog/v3/pkg/context"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/feature"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -51,10 +52,17 @@ func isMySQLErrorDeterminate(err error) bool {
 	return false
 }
 
+const defaultParams = "timeout=5s"
+
 func parseMySQL(_ logContext.Context, subname string) (jdbc, error) {
 	// expected form: [subprotocol:]//[user:password@]HOST[/DB][?key=val[&key=val]]
 	if !strings.HasPrefix(subname, "//") {
 		return nil, errors.New("expected host to start with //")
+	}
+
+	params := defaultParams
+	if feature.NoVerifySsl.Load() {
+		params = defaultParams + "&tls=skip-verify"
 	}
 
 	// need for hostnames that have tcp(host:port) format required by this database driver
@@ -64,7 +72,7 @@ func parseMySQL(_ logContext.Context, subname string) (jdbc, error) {
 			conn:     subname[2:],
 			userPass: cfg.User + ":" + cfg.Passwd,
 			host:     fmt.Sprintf("tcp(%s)", cfg.Addr),
-			params:   "timeout=5s",
+			params:   params,
 		}, nil
 	}
 
@@ -97,7 +105,7 @@ func parseMySQL(_ logContext.Context, subname string) (jdbc, error) {
 		conn:     subname[2:],
 		userPass: userAndPass,
 		host:     fmt.Sprintf("tcp(%s)", u.Host),
-		params:   "timeout=5s",
+		params:   params,
 	}, nil
 
 }

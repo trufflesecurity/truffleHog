@@ -12,7 +12,8 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-type Scanner struct{
+type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -20,8 +21,6 @@ type Scanner struct{
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"invoiceocean"}) + `\b([0-9A-Za-z]{20})\b`)
 	urlPat = regexp.MustCompile(`\b([0-9a-z]{1,}\.invoiceocean\.com)\b`)
@@ -52,12 +51,16 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
 				req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("https://%s/invoices.json?period=this_month&api_token=%s", resURL, resMatch), nil)
 				if err != nil {
 					continue
 				}
 				req.Header.Add("Content-Type", "application/json")
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

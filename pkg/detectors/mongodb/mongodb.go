@@ -9,6 +9,7 @@ import (
 
 	logContext "github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/feature"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 
 	regexp "github.com/wasilibs/go-re2"
@@ -129,6 +130,11 @@ func verifyUri(ctx context.Context, connStr string, timeout time.Duration) (bool
 	clientOptions := options.Client().SetTimeout(timeout).ApplyURI(connStr)
 	if err := clientOptions.Validate(); err != nil {
 		return false, err
+	}
+
+	// Disable TLS certificate validation.
+	if feature.NoVerifySsl.Load() {
+		clientOptions.TLSConfig.InsecureSkipVerify = true
 	}
 
 	client, err := mongo.Connect(ctx, clientOptions)

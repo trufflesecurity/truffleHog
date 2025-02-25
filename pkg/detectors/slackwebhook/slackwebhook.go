@@ -23,7 +23,6 @@ var _ detectors.Detector = (*Scanner)(nil)
 var _ detectors.CustomFalsePositiveChecker = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPats = map[string]*regexp.Regexp{
 		"Slack Service Web Hook":   regexp.MustCompile(`(https://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]{23,25})`),
@@ -56,10 +55,8 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-
-				client := s.client
-				if client == nil {
-					client = defaultClient
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
 				}
 
 				// We don't want to actually send anything to webhooks we find. To verify them without spamming them, we
@@ -70,7 +67,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 					continue
 				}
 				req.Header.Add("Content-Type", "application/json")
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					bodyBytes, err := io.ReadAll(res.Body)

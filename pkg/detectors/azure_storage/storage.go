@@ -26,8 +26,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	namePat = regexp.MustCompile(`(?i:Account[_.-]?Name|Storage[_.-]?(?:Account|Name))(?:.|\s){0,20}?\b([a-z0-9]{3,24})\b|([a-z0-9]{3,24})(?i:\.blob\.core\.windows\.net)`) // Names can only be lowercase alphanumeric.
 	keyPat  = regexp.MustCompile(`(?i:(?:Access|Account|Storage)[_.-]?Key)(?:.|\s){0,25}?([a-zA-Z0-9+\/-]{86,88}={0,2})`)
 
@@ -105,12 +103,11 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				client := s.client
-				if client == nil {
-					client = defaultClient
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
 				}
 
-				isVerified, verificationErr := s.verifyMatch(ctx, client, name, key, s1.ExtraData)
+				isVerified, verificationErr := s.verifyMatch(ctx, s.client, name, key, s1.ExtraData)
 				s1.Verified = isVerified
 				s1.SetVerificationError(verificationErr, key)
 			}

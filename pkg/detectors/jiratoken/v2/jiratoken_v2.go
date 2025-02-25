@@ -25,8 +25,6 @@ var _ detectors.Versioner = (*Scanner)(nil)
 func (Scanner) Version() int { return 2 }
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithLocalAddresses
-
 	// https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/
 	// Tokens created after Jan 18 2023 use a variable length
 	tokenPat  = regexp.MustCompile(detectors.PrefixRegex([]string{"jira"}) + `\b([A-Za-z0-9+/=_-]+=[A-Za-z0-9]{8})\b`)
@@ -75,8 +73,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
-					client := s.getClient()
-					isVerified, verificationErr := verifyJiratoken(ctx, client, resEmail, resDomain, resToken)
+					if s.client == nil {
+						s.client = detectors.GetHttpClientWithLocalAddresses()
+					}
+					isVerified, verificationErr := verifyJiratoken(ctx, s.client, resEmail, resDomain, resToken)
 					s1.Verified = isVerified
 					s1.SetVerificationError(verificationErr, resToken)
 				}
@@ -89,13 +89,6 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	}
 
 	return results, nil
-}
-
-func (s Scanner) getClient() *http.Client {
-	if s.client != nil {
-		return s.client
-	}
-	return defaultClient
 }
 
 func verifyJiratoken(ctx context.Context, client *http.Client, email, domain, token string) (bool, error) {

@@ -26,7 +26,6 @@ var _ detectors.Detector = (*Scanner)(nil)
 var _ detectors.CustomFalsePositiveChecker = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	urlPat    = regexp.MustCompile(`https://(.{1,50})\.(.{1,50})\.batch\.azure\.com`)
 	secretPat = regexp.MustCompile(`[A-Za-z0-9+/=]{88}`)
@@ -61,9 +60,8 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				client := s.client
-				if client == nil {
-					client = defaultClient
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
 				}
 				url := fmt.Sprintf("%s/applications?api-version=2020-09-01.12.0", endpoint)
 				date := time.Now().UTC().Format(http.TimeFormat)
@@ -84,7 +82,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", fmt.Sprintf("SharedKey %s:%s", accountName, signature))
 				req.Header.Set("Date", date)
-				resp, err := client.Do(req)
+				resp, err := s.client.Do(req)
 				if err != nil {
 					continue
 				}

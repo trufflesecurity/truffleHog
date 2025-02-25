@@ -23,8 +23,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat    = regexp.MustCompile(common.BuildRegex(common.AlphaNumPattern, "", 32))
 	idPat     = regexp.MustCompile(`\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b`)
@@ -68,11 +66,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
-					client := s.client
-					if client == nil {
-						client = defaultClient
+					if s.client == nil {
+						s.client = detectors.GetHttpClientWithNoLocalAddresses()
 					}
-					verified, verificationErr := verifyResult(ctx, client, domain, id, key)
+					verified, verificationErr := verifyResult(ctx, s.client, domain, id, key)
 					s1.Verified = verified
 					s1.SetVerificationError(verificationErr)
 				}

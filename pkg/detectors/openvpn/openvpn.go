@@ -22,8 +22,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	clientIDPat     = regexp.MustCompile(detectors.PrefixRegex([]string{"openvpn"}) + `\b([A-Za-z0-9-]{3,40}\.[A-Za-z0-9-]{3,40})\b`)
 	clientSecretPat = regexp.MustCompile(`\b([a-zA-Z0-9_-]{64,})\b`)
 	domainPat       = regexp.MustCompile(`\b(https?://[A-Za-z0-9-]+\.api\.openvpn\.com)\b`)
@@ -57,9 +55,8 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 
 				if verify {
-					client := s.client
-					if client == nil {
-						client = defaultClient
+					if s.client == nil {
+						s.client = detectors.GetHttpClientWithNoLocalAddresses()
 					}
 
 					payload := strings.NewReader("grant_type=client_credentials")
@@ -75,7 +72,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 
 					req.Header.Add("Authorization", fmt.Sprintf("Basic %s", sEnc))
 					req.Header.Add("content-type", "application/x-www-form-urlencoded")
-					res, err := client.Do(req)
+					res, err := s.client.Do(req)
 					if err == nil {
 						defer res.Body.Close()
 						if res.StatusCode >= 200 && res.StatusCode < 300 {

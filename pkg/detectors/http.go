@@ -2,16 +2,22 @@ package detectors
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/feature"
 )
 
-var DetectorHttpClientWithNoLocalAddresses *http.Client
-var DetectorHttpClientWithLocalAddresses *http.Client
+var (
+	clientWithNoLocalAddresses *http.Client
+	noLocalOnce                sync.Once
+	clientWithLocalAddresses   *http.Client
+	localOnce                  sync.Once
+)
 
 const DefaultResponseTimeout = 5 * time.Second
 
@@ -22,18 +28,31 @@ func userAgent() string {
 	return "TruffleHog"
 }
 
-func init() {
-	DetectorHttpClientWithLocalAddresses = NewDetectorHttpClient(
-		WithTransport(NewDetectorTransport(nil)),
-		WithTimeout(DefaultResponseTimeout),
-		WithNoFollowRedirects(),
-	)
-	DetectorHttpClientWithNoLocalAddresses = NewDetectorHttpClient(
-		WithTransport(NewDetectorTransport(nil)),
-		WithTimeout(DefaultResponseTimeout),
-		WithNoFollowRedirects(),
-		WithNoLocalIP(),
-	)
+func GetHttpClientWithNoLocalAddresses() *http.Client {
+	if clientWithNoLocalAddresses == nil {
+		noLocalOnce.Do(func() {
+			clientWithNoLocalAddresses = NewDetectorHttpClient(
+				WithTransport(NewDetectorTransport(nil)),
+				WithTimeout(DefaultResponseTimeout),
+				WithNoFollowRedirects(),
+				WithNoLocalIP(),
+			)
+		})
+	}
+	return clientWithNoLocalAddresses
+}
+
+func GetHttpClientWithLocalAddresses() *http.Client {
+	if clientWithLocalAddresses == nil {
+		localOnce.Do(func() {
+			clientWithLocalAddresses = NewDetectorHttpClient(
+				WithTransport(NewDetectorTransport(nil)),
+				WithTimeout(DefaultResponseTimeout),
+				WithNoFollowRedirects(),
+			)
+		})
+	}
+	return clientWithLocalAddresses
 }
 
 // ClientOption defines a function type that modifies an http.Client.
@@ -64,7 +83,7 @@ var defaultDialer = &net.Dialer{
 
 func NewDetectorTransport(T http.RoundTripper) http.RoundTripper {
 	if T == nil {
-		T = &http.Transport{
+		t := &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			DialContext:           defaultDialer.DialContext,
 			MaxIdleConns:          100,
@@ -73,6 +92,11 @@ func NewDetectorTransport(T http.RoundTripper) http.RoundTripper {
 			TLSHandshakeTimeout:   3 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		}
+		// Disable TLS certificate validation.
+		if feature.NoVerifySsl.Load() {
+			t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		}
+		T = t
 	}
 	return &detectorTransport{T: T}
 }

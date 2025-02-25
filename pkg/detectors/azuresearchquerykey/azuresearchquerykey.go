@@ -21,7 +21,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"azure"}) + `\b([0-9a-zA-Z]{52})\b`)
 	urlPat = regexp.MustCompile(detectors.PrefixRegex([]string{"azure"}) + `https:\/\/([0-9a-z]{5,40})\.search\.windows\.net\/indexes\/([0-9a-z]{5,40})\b`)
@@ -53,9 +52,8 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				RawV2:        []byte(resMatch + resUrlMatch),
 			}
 			if verify {
-				client := s.client
-				if client == nil {
-					client = defaultClient
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
 				}
 				req, err := http.NewRequestWithContext(ctx, "GET", resUrlMatch+"/docs/$count?api-version=2023-10-01-Preview", nil)
 				if err != nil {
@@ -63,7 +61,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				}
 				req.Header.Add("api-key", resMatch)
 
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

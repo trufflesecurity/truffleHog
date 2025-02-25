@@ -12,7 +12,8 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-type Scanner struct{
+type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -20,8 +21,6 @@ type Scanner struct{
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives
 	keyPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"salesmate"}) + `\b([0-9Aa-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b`)
 	domainPat = regexp.MustCompile(detectors.PrefixRegex([]string{"salesmate"}) + `\b([a-z0-9A-Z]{3,22})\b`)
@@ -50,6 +49,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
 				url := fmt.Sprintf("https://%s.salesmate.io/apis/v3/companies/1?trackingRecentSearch=true", resIdMatch)
 				req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 				if err != nil {
@@ -58,7 +61,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 
 				req.Header.Add("Content-Type", "application/json")
 				req.Header.Add("sessionToken", resMatch)
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					if res.StatusCode >= 200 && res.StatusCode < 300 {

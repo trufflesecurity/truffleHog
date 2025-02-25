@@ -14,6 +14,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -21,8 +22,6 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat    = regexp.MustCompile(detectors.PrefixRegex([]string{"thinkific"}) + `\b([0-9a-f]{32})\b`)
 	domainPat = regexp.MustCompile(detectors.PrefixRegex([]string{"thinkific"}) + `\b([0-9A-Za-z]{4,40})\b`)
@@ -51,6 +50,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
+
 				domainRes := fmt.Sprintf("%s-s-school", resDomainMatch)
 				req, err := http.NewRequestWithContext(ctx, "GET", "https://api.thinkific.com/api/public/v1/collections", nil)
 				if err != nil {
@@ -59,7 +62,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				req.Header.Add("X-Auth-API-Key", resMatch)
 				req.Header.Add("X-Auth-Subdomain", domainRes)
 				req.Header.Add("Content-Type", "application/json")
-				res, err := client.Do(req)
+				res, err := s.client.Do(req)
 				if err == nil {
 					defer res.Body.Close()
 					bodyBytes, err := io.ReadAll(res.Body)

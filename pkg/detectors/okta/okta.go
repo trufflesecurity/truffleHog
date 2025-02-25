@@ -13,7 +13,8 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-type Scanner struct{
+type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -47,6 +48,9 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
+				if s.client == nil {
+					s.client = detectors.GetHttpClientWithNoLocalAddresses()
+				}
 				// curl -v -X GET \
 				// -H "Accept: application/json" \
 				// -H "Content-Type: application/json" \
@@ -63,7 +67,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 				req.Header.Set("Content-Type", "application/json")
 				req.Header.Set("Authorization", fmt.Sprintf("SSWS %s", token))
 
-				resp, err := detectors.DetectorHttpClientWithNoLocalAddresses.Do(req)
+				resp, err := s.client.Do(req)
 				if err != nil {
 					continue
 				}

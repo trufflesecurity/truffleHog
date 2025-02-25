@@ -21,8 +21,6 @@ var (
 	// Ensure the Scanner satisfies the interface at compile time.
 	_ detectors.Detector = (*Scanner)(nil)
 
-	defaultClient = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"aha"}) + `\b([0-9a-f]{64})\b`)
 	URLPat = regexp.MustCompile(`\b([A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])\.aha\.io)`)
@@ -32,13 +30,6 @@ var (
 // Use identifiers in the secret preferably, or the provider name.
 func (s Scanner) Keywords() []string {
 	return []string{"aha.io"}
-}
-
-func (s Scanner) getClient() *http.Client {
-	if s.client != nil {
-		return s.client
-	}
-	return defaultClient
 }
 
 // FromData will find and optionally verify Aha secrets in a given set of bytes.
@@ -61,8 +52,10 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
-			client := s.getClient()
-			isVerified, verificationErr := verifyAha(ctx, client, resMatch, resURLMatch)
+			if s.client == nil {
+				s.client = detectors.GetHttpClientWithNoLocalAddresses()
+			}
+			isVerified, verificationErr := verifyAha(ctx, s.client, resMatch, resURLMatch)
 			s1.Verified = isVerified
 			s1.SetVerificationError(verificationErr, resMatch)
 		}

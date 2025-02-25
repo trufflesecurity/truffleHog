@@ -11,14 +11,14 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 )
 
-type Scanner struct{}
+type Scanner struct {
+	client *http.Client
+}
 
 // Ensure the Scanner satisfies the interface at compile time.
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = detectors.DetectorHttpClientWithNoLocalAddresses
-
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	keyPat = regexp.MustCompile(`(https://[\w-]+\.tines\.com/webhook/[a-z0-9]{32}/[a-z0-9]{32})`)
 )
@@ -44,12 +44,16 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 
 		if verify {
+			if s.client == nil {
+				s.client = detectors.GetHttpClientWithNoLocalAddresses()
+			}
+
 			payload := strings.NewReader(``)
 			req, err := http.NewRequestWithContext(ctx, "GET", resMatch, payload)
 			if err != nil {
 				continue
 			}
-			res, err := client.Do(req)
+			res, err := s.client.Do(req)
 			if err == nil {
 				defer res.Body.Close()
 				if res.StatusCode >= 200 && res.StatusCode < 300 {
