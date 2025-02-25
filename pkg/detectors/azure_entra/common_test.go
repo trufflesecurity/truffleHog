@@ -12,6 +12,7 @@ type testCase struct {
 }
 
 func runPatTest(t *testing.T, tests map[string]testCase, matchFunc func(data string) map[string]struct{}) {
+	t.Parallel()
 	t.Helper()
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -99,6 +100,7 @@ tenant_id = "57aabdfc-6ce0-4828-94a2-9abe277892ec"`,
 				"974fde14-c3a4-481b-9b03-cfce18213a07": {},
 			},
 		},
+		// https://github.com/AzureAD/microsoft-authentication-library-for-dotnet/blob/b444dd5f8800c298016ddd9da2e6c05b0bf4b02c/tests/Microsoft.Identity.Test.Common/TestConstants.cs#L241-L245
 		"login.microsoftonline.com": {
 			Input: `  auth: {
     authority: 'https://login.microsoftonline.com/7bb339cb-e94c-4a85-884c-48ebd9bb28c3',
@@ -112,6 +114,12 @@ tenant_id = "57aabdfc-6ce0-4828-94a2-9abe277892ec"`,
 			Input: `az offazure hyperv site create --location "eastus" --service-principal-identity-details aad-authority="https://login.windows.net/7bb339cb-e94c-4a85-884c-48ebd9bb28c3" application-id="e9f013df-2a2a-4871-b766-e79867f30348" \'`,
 			Expected: map[string]struct{}{
 				"7bb339cb-e94c-4a85-884c-48ebd9bb28c3": {},
+			},
+		},
+		"login.microsoft.com": {
+			Input: `# SYSTEM_CONFIGURATION_ISSUER_URI=https://login.microsoft.com/2b820e29-94a2-402f-b666-c88ebcc69eb4/v2.0`,
+			Expected: map[string]struct{}{
+				"2b820e29-94a2-402f-b666-c88ebcc69eb4": {},
 			},
 		},
 		"sts.windows.net": {
@@ -299,6 +307,14 @@ $ApplicationId = "1e002bca-c6e2-446e-a29e-a221909fe8aa"`,
 				"902aeb6d-29c7-4f6e-849d-4b933117e320": {},
 			},
 		},
+		"cleint (typo)": {
+			Input: `  console.log({
+    cleintId:
+      "f3a45cb9-e388-4358-a6ef-08a63f97457c",`,
+			Expected: map[string]struct{}{
+				"f3a45cb9-e388-4358-a6ef-08a63f97457c": {},
+			},
+		},
 		"clientid": {
 			Input: `export const msalConfig = {
   auth: {
@@ -342,6 +358,47 @@ subscription_id = "47ab1364-000d-4a53-838d-1537b1e3b49f"
 				"21e144ac-532d-49ad-ba15-1c40694ce8b1": {},
 			},
 		},
+		"uri - api://": {
+			Input: `AUDIENCE=api://51aaa91a-bb09-40cd-9f1f-e8c0936246c6/.default`,
+			Expected: map[string]struct{}{
+				"51aaa91a-bb09-40cd-9f1f-e8c0936246c6": {},
+			},
+		},
+		"uri - http://": {
+			Input: `AUDIENCE=http://ceb233fb-f14c-4330-9c5b-91f7db4970e1/.default`,
+			Expected: map[string]struct{}{
+				"ceb233fb-f14c-4330-9c5b-91f7db4970e1": {},
+			},
+		},
+		"uri - https://": {
+			Input: `AUDIENCE=https://47c3cfeb-b7f4-466a-b690-f7fcc79472a9/.default`,
+			Expected: map[string]struct{}{
+				"47c3cfeb-b7f4-466a-b690-f7fcc79472a9": {},
+			},
+		},
+		"uri - myapps.microsoft.com": {
+			Input: `# Linkcheck configuration
+linkcheck_ignore = [
+    "https://myapps.microsoft.com/signin/01501f0f-c48b-4327-92a2-2324949b0a9c?tenantId=e4cbd4d7-327c-47fc-bcde-1005207021a5",
+]`,
+			Expected: map[string]struct{}{
+				"01501f0f-c48b-4327-92a2-2324949b0a9c": {},
+			},
+		},
+		"uri - myapps.microsoft.com with name": {
+			Input: `$LoginURL = 'https://myapps.microsoft.com/signin/App1/c370c8f6-0cb5-44b2-a903-c6cbd5ff6ce4?tenantId=74d7c41b-e3b6-4d40-88cf-436fd5fc231a'`,
+			Expected: map[string]struct{}{
+				"c370c8f6-0cb5-44b2-a903-c6cbd5ff6ce4": {},
+			},
+		},
+		// TODO
+		// "createdBy": {
+		// 	Input: `        "systemData": {
+		//   "createdAt": "2023-08-21T00:30:04.2907836\u002B00:00",
+		//   "createdBy": "117311a5-df69-4fff-a301-6be98c1bd0ab",
+		//   "createdByType": "Application"
+		// }`,
+		// },
 
 		// Arbitrary test cases
 		"spacing": {
@@ -355,6 +412,21 @@ subscription_id = "47ab1364-000d-4a53-838d-1537b1e3b49f"
 			Expected: map[string]struct{}{
 				"f12345c6-7890-1f23-b456-789eb0bb1c23": {},
 			},
+		},
+
+		// Invalid
+		"invalid uri": {
+			Input: `# ldapadd -Y EXTERNAL -H ldapi:/// -f chrootpw.ldif`,
+		},
+		"invalid - AppInsights UUID": {
+			Input: `        "Date": "Mon, 21 Aug 2023 00:29:56 GMT",
+        "Request-Context": "appId=cid-v1:2d2e8e63-272e-4b3c-8598-4ee570a0e70d",
+        "Strict-Transport-Security": "max-age=15724800; includeSubDomains; preload",`,
+		},
+		"invalid - client-request-id": {
+			Input: `        "Accept-Encoding": "gzip, deflate",
+        "client-request-id": "c9e15037-e93c-4da9-b885-9641a826ed9a",
+        "Connection": "keep-alive",`,
 		},
 	}
 

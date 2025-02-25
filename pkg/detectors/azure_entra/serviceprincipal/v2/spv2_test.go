@@ -1,10 +1,99 @@
 package v2
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/engine/ahocorasick"
 )
+
+func TestAzure_Pattern(t *testing.T) {
+	t.Parallel()
+	d := Scanner{}
+	ahoCorasickCore := ahocorasick.NewAhoCorasickCore([]detectors.Detector{d})
+
+	tests := []struct {
+		name  string
+		input string
+		want  []string
+	}{
+		// Valid
+		{
+			name: "valid - single secret, client, tenant",
+			input: `ClientID - 9794fe8b-1ff6-4cf6-b28c-72c8fb124942
+Client Secret- nfu7Q~XRIzdfTQS4QN_ABnmQKg4dPA10~5lbocIl
+Tenant ID - d4a48591-844d-44a2-8a84-9c94028bdfab`,
+			want: []string{`{"clientSecret":"nfu7Q~XRIzdfTQS4QN_ABnmQKg4dPA10~5lbocIl","clientId":"9794fe8b-1ff6-4cf6-b28c-72c8fb124942","tenantId":"d4a48591-844d-44a2-8a84-9c94028bdfab"}`},
+		},
+		{
+			name: "valid - single secret, multiple client/tenant",
+			input: `
+cas.authn.azure-active-directory.client-id=5b82d177-f2ee-461b-a1f6-0624fff3caf0,
+#cas.authn.azure-active-directory.client-id=51b65b04-5658-49e0-9955-f1705935bf0a,
+cas.authn.azure-active-directory.login-url=https://login.microsoftonline.com/common/,
+cas.authn.azure-active-directory.tenant=19653e91-7a9a-4bd6-8752-3070fc17e9e7,
+#cas.authn.azure-active-directory.tenant=9b5eb0ce-7b2c-4f8d-8542-6248ee2c6525,
+cas.authn.azure-active-directory.client-secret=pe48Q~~WtAjXI8HronCfgvzgHPfMGWjn4Hy4vcgC,
+`,
+			want: []string{"pe48Q~~WtAjXI8HronCfgvzgHPfMGWjn4Hy4vcgC"},
+		},
+
+		// Invalid
+		{
+			name: "invalid - low entropy",
+			input: `
+tenant_id         = "1821c750-3a5f-4255-88ad-e24b7a1564c1"
+client_id         = "4e14d6ff-c99b-4d10-8491-00f731747898"
+client_secret	  = "bP88Q~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`,
+			want: nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			matchedDetectors := ahoCorasickCore.FindDetectorMatches([]byte(test.input))
+			if len(matchedDetectors) == 0 {
+				t.Errorf("keywords '%v' not matched by: %s", d.Keywords(), test.input)
+				return
+			}
+
+			results, err := d.FromData(context.Background(), false, []byte(test.input))
+			if err != nil {
+				t.Errorf("error = %v", err)
+				return
+			}
+
+			if len(results) != len(test.want) {
+				if len(results) == 0 {
+					t.Errorf("did not receive result")
+				} else {
+					t.Errorf("expected %d results, only received %d", len(test.want), len(results))
+				}
+				return
+			}
+
+			actual := make(map[string]struct{}, len(results))
+			for _, r := range results {
+				if len(r.RawV2) > 0 {
+					actual[string(r.RawV2)] = struct{}{}
+				} else {
+					actual[string(r.Raw)] = struct{}{}
+				}
+			}
+			expected := make(map[string]struct{}, len(test.want))
+			for _, v := range test.want {
+				expected[v] = struct{}{}
+			}
+
+			if diff := cmp.Diff(expected, actual); diff != "" {
+				t.Errorf("%s diff: (-want +got)\n%s", test.name, diff)
+			}
+		})
+	}
+}
 
 type testCase struct {
 	Input    string
@@ -12,7 +101,9 @@ type testCase struct {
 }
 
 func Test_FindClientSecretMatches(t *testing.T) {
+	t.Parallel()
 	cases := map[string]testCase{
+		// Valid
 		"secret": {
 			Input: `servicePrincipal:
   tenantId: "608e4ac4-2ca8-40dd-a046-4064540a1cde"
@@ -49,6 +140,12 @@ OPENID_GRANT_TYPE=client_credentials`,
 			Expected: map[string]struct{}{
 				"-6s8Q~.Q9CKMOXHGs_BA3ig2wUzyDRyulhWEOc3u": {},
 			},
+		},
+
+		// Invalid
+		"invalid - low entropy": {
+			Input:    `CLIENT_SECRET = 'USe8Q~xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'`,
+			Expected: nil,
 		},
 	}
 

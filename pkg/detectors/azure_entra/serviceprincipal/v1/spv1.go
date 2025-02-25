@@ -25,15 +25,13 @@ var _ interface {
 	detectors.Versioner
 } = (*Scanner)(nil)
 
-var (
-	defaultClient = common.SaneHttpClient()
-	// TODO: Azure storage access keys and investigate other types of creds.
-	// https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
-	// https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#third-case-access-token-request-with-a-federated-credential
-	//clientSecretPat = regexp.MustCompile(`(?i)(?:secret|password| -p[ =]).{0,80}?([\w~@[\]:.?*/+=-]{31,34}`)
-	// TODO: Tighten this regex and replace it with above.
-	secretPat = regexp.MustCompile(`(?i)(?:secret|password| -p[ =]).{0,80}[^A-Za-z0-9!#$%&()*+,\-./:;<=>?@[\\\]^_{|}~]([A-Za-z0-9!#$%&()*+,\-./:;<=>?@[\\\]^_{|}~]{31,34})[^A-Za-z0-9!#$%&()*+,\-./:;<=>?@[\\\]^_{|}~]`)
-)
+func (s Scanner) Type() detectorspb.DetectorType {
+	return detectorspb.DetectorType_Azure
+}
+
+func (s Scanner) Description() string {
+	return serviceprincipal.Description
+}
 
 func (s Scanner) Version() int {
 	return 1
@@ -44,6 +42,19 @@ func (s Scanner) Version() int {
 func (s Scanner) Keywords() []string {
 	return []string{"azure", "az", "entra", "msal", "login.microsoftonline.com", ".onmicrosoft.com"}
 }
+
+var (
+	defaultClient = common.SaneHttpClient()
+	// TODO: Azure storage access keys and investigate other types of creds.
+	// https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
+	// https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#third-case-access-token-request-with-a-federated-credential
+	// clientSecretPat = regexp.MustCompile(`(?i)(?:secret|password| -p[ =]).{0,80}?([\w~@[\]:.?*/+=-]{31,34}`)
+	// TODO: Tighten this regex and replace it with above.
+	secretPat = regexp.MustCompile(`(?i)(?:secret|password| -p[ =]).{0,80}[^A-Za-z0-9!#$%&()*+,\-./:;<>?@[\\\]^_{|}~]([A-Za-z0-9!#$%&()*+,\-./:;<=>?@[\\\]^_{|}~]{31,34})(?:\s|\z|[^A-Za-z0-9!#$%&()*+,\-./:;<=>?@[\\\]^_{|}~])`)
+
+	invalidMatchPat  = regexp.MustCompile(`^passwordCredentials":`)
+	invalidSecretPat = regexp.MustCompile(`^[a-zA-Z]+$`)
+)
 
 // FromData will find and optionally verify Azure secrets in a given set of bytes.
 func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (results []detectors.Result, err error) {
@@ -68,20 +79,18 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	return results, nil
 }
 
-func (s Scanner) Type() detectorspb.DetectorType {
-	return detectorspb.DetectorType_Azure
-}
-
-func (s Scanner) Description() string {
-	return serviceprincipal.Description
-}
-
 func findSecretMatches(data string) map[string]struct{} {
 	uniqueMatches := make(map[string]struct{})
 	for _, match := range secretPat.FindAllStringSubmatch(data, -1) {
 		m := match[1]
-		// Ignore secrets that are handled by the V2 detector.
 		if v2.SecretPat.MatchString(m) {
+			// Ignore secrets that are handled by the V2 detector.
+			continue
+		} else if detectors.StringShannonEntropy(m) < 3 {
+			// Ignore low-entropy results.
+			continue
+		} else if invalidSecretPat.MatchString(m) || invalidMatchPat.MatchString(match[0]) {
+			// Ignore patterns that are known to be false.
 			continue
 		}
 		uniqueMatches[m] = struct{}{}

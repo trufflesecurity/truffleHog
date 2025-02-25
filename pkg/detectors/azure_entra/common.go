@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	stdRegexp "regexp" // Faster for small inputs.
 	"strings"
 
 	regexp "github.com/wasilibs/go-re2"
@@ -24,7 +25,7 @@ var (
 	// https://learn.microsoft.com/en-us/microsoft-365/admin/setup/domains-faq?view=o365-worldwide#why-do-i-have-an--onmicrosoft-com--domain
 	tenantIdPat = regexp.MustCompile(fmt.Sprintf(
 		//language=regexp
-		`(?i)(?:(?:login\.microsoftonline\.com/|(?:login|sts)\.windows\.net/|(?:t[ae]n[ae]nt(?:[ ._-]?id)?|\btid)(?:.|\s){0,60}?)(%s)|https?://(%s)|X-AnchorMailbox(?:.|\s){0,60}?@(%s)|/(%s)/(?:oauth2/v2\.0|B2C_1\w+|common|discovery|federationmetadata|kerberos|login|openid/|reprocess|resume|saml2|token|uxlogout|v2\.0|wsfed))`,
+		`(?i)(?:(?:login\.microsoft(?:online)?\.com/|(?:login|sts)\.windows\.net/|(?:t[ae]n[ae]nt(?:[ ._-]?id)?|\btid)(?:.|\s){0,60}?)(%s)|https?://(%s)|X-AnchorMailbox(?:.|\s){0,60}?@(%s)|/(%s)/(?:oauth2/v2\.0|B2C_1\w+|common|discovery|federationmetadata|kerberos|login|openid/|reprocess|resume|saml2|token|uxlogout|v2\.0|wsfed))`,
 		uuidStr,
 		uuidStr,
 		uuidStr,
@@ -33,7 +34,7 @@ var (
 	tenantOnMicrosoftPat = regexp.MustCompile(`([\w-]+\.onmicrosoft\.com)`)
 
 	clientIdPat = regexp.MustCompile(fmt.Sprintf(
-		`(?i)(?:(?:app(?:lication)?|client)(?:[ ._-]?id)?|username| -u)(?:.|\s){0,45}?(%s)`, uuidStr))
+		`(?i)(?:(?:api|https?)://(%s)/|myapps\.microsoft\.com/signin/(?:[\w-]+/)?(%s)|(?:[\w:=]{0,10}?(?:app(?:lication)?|cl[ie][ei]nt)(?:[ ._-]?id)?|username| -u)(?:.|\s){0,45}?(%s))`, uuidStr, uuidStr, uuidStr))
 )
 
 // FindTenantIdMatches returns a list of potential tenant IDs in the provided |data|.
@@ -41,17 +42,11 @@ func FindTenantIdMatches(data string) map[string]struct{} {
 	uniqueMatches := make(map[string]struct{})
 
 	for _, match := range tenantIdPat.FindAllStringSubmatch(data, -1) {
-		var m string
-		if match[1] != "" {
-			m = strings.ToLower(match[1])
-		} else if match[2] != "" {
-			m = strings.ToLower(match[2])
-		} else if match[3] != "" {
-			m = strings.ToLower(match[3])
-		} else if match[4] != "" {
-			m = strings.ToLower(match[4])
-		}
-		if _, ok := detectors.UuidFalsePositives[detectors.FalsePositive(m)]; ok {
+		m := strings.ToLower(firstNonEmptyMatch(match))
+
+		if detectors.StringShannonEntropy(m) < 3 {
+			continue
+		} else if _, ok := detectors.UuidFalsePositives[detectors.FalsePositive(m)]; ok {
 			continue
 		} else if detectors.StringShannonEntropy(m) < 3 {
 			continue
@@ -64,12 +59,22 @@ func FindTenantIdMatches(data string) map[string]struct{} {
 	return uniqueMatches
 }
 
+// language=regexp
+const invalidClientPat = `(?i)(?:client[._-]?request[._-]?(?:id)?(?:.|\s){1,10}%s|cid-v1:%s)`
+
 // FindClientIdMatches returns a list of potential client UUIDs in the provided |data|.
 func FindClientIdMatches(data string) map[string]struct{} {
 	uniqueMatches := make(map[string]struct{})
 	for _, match := range clientIdPat.FindAllStringSubmatch(data, -1) {
-		m := strings.ToLower(match[1])
-		if _, ok := detectors.UuidFalsePositives[detectors.FalsePositive(m)]; ok {
+		m := strings.ToLower(firstNonEmptyMatch(match))
+
+		fpPat := stdRegexp.MustCompile(fmt.Sprintf(invalidClientPat, m, m))
+		if detectors.StringShannonEntropy(m) < 3 {
+			continue
+		} else if _, ok := detectors.UuidFalsePositives[detectors.FalsePositive(m)]; ok {
+			continue
+		} else if fpPat.MatchString(match[0]) {
+			// Ignore request context UUID. (https://stackoverflow.com/q/59425520)
 			continue
 		} else if detectors.StringShannonEntropy(m) < 3 {
 			continue
@@ -131,4 +136,18 @@ func queryTenant(ctx context.Context, client *http.Client, tenant string) bool {
 		logger.Error(nil, "WARNING: Unexpected response when checking if tenant exists", "status_code", res.StatusCode, "body", string(bodyBytes))
 		return false
 	}
+}
+
+// firstNonEmptyMatch returns the index and value of the first non-empty match.
+func firstNonEmptyMatch(matches []string) string {
+	if len(matches) <= 1 {
+		return ""
+	}
+	// The first index is the entire matched string.
+	for _, val := range matches[1:] {
+		if val != "" {
+			return val
+		}
+	}
+	return ""
 }
