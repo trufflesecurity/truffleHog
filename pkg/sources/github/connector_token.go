@@ -17,14 +17,14 @@ type tokenConnector struct {
 	apiClient          *github.Client
 	token              string
 	isGitHubEnterprise bool
-	handleRateLimit    func(context.Context, error, ...errorReporter) bool
+	handleRateLimit    func(context.Context, error) bool
 	user               string
 	userMu             sync.Mutex
 }
 
-var _ connector = (*tokenConnector)(nil)
+var _ Connector = (*tokenConnector)(nil)
 
-func newTokenConnector(apiEndpoint string, token string, handleRateLimit func(context.Context, error, ...errorReporter) bool) (*tokenConnector, error) {
+func NewTokenConnector(apiEndpoint string, token string, handleRateLimit func(context.Context, error) bool) (Connector, error) {
 	const httpTimeoutSeconds = 60
 	httpClient := common.RetryableHTTPClientTimeout(int64(httpTimeoutSeconds))
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
@@ -50,11 +50,11 @@ func (c *tokenConnector) APIClient() *github.Client {
 	return c.apiClient
 }
 
-func (c *tokenConnector) Clone(ctx context.Context, repoURL string) (string, *gogit.Repository, error) {
+func (c *tokenConnector) Clone(ctx context.Context, repoURL string, args ...string) (string, *gogit.Repository, error) {
 	if err := c.setUserIfUnset(ctx); err != nil {
 		return "", nil, err
 	}
-	return git.CloneRepoUsingToken(ctx, c.token, repoURL, c.user)
+	return git.CloneRepoUsingToken(ctx, c.token, repoURL, c.user, args...)
 }
 
 func (c *tokenConnector) IsGithubEnterprise() bool {

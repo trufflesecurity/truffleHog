@@ -16,6 +16,7 @@ import (
 
 	"github.com/gobwas/glob"
 	"github.com/google/go-github/v67/github"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/log"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -64,7 +65,7 @@ type Source struct {
 	jobPool         *errgroup.Group
 	resumeInfoMutex sync.Mutex
 	resumeInfoSlice []string
-	connector       connector
+	connector       Connector
 
 	includePRComments     bool
 	includeIssueComments  bool
@@ -1573,4 +1574,29 @@ func (s *Source) ChunkUnit(ctx context.Context, unit sources.SourceUnit, reporte
 		return err
 	}
 	return s.scanRepo(ctx, repoURL, reporter)
+}
+
+func newConnector(source *Source) (Connector, error) {
+	apiEndpoint := source.conn.Endpoint
+	if apiEndpoint == "" || endsWithGithub.MatchString(apiEndpoint) {
+		apiEndpoint = cloudEndpoint
+	}
+
+	switch cred := source.conn.GetCredential().(type) {
+	case *sourcespb.GitHub_GithubApp:
+		log.RedactGlobally(cred.GithubApp.GetPrivateKey())
+		return NewAppConnector(apiEndpoint, cred.GithubApp)
+	case *sourcespb.GitHub_BasicAuth:
+		log.RedactGlobally(cred.BasicAuth.GetPassword())
+		return NewBasicAuthConnector(apiEndpoint, cred.BasicAuth)
+	case *sourcespb.GitHub_Token:
+		log.RedactGlobally(cred.Token)
+		return NewTokenConnector(apiEndpoint, cred.Token, func(c context.Context, err error) bool {
+			return source.handleRateLimit(c, err)
+		})
+	case *sourcespb.GitHub_Unauthenticated:
+		return NewUnauthenticatedConnector(apiEndpoint)
+	default:
+		return nil, fmt.Errorf("unknown connection type %T", source.conn.GetCredential())
+	}
 }

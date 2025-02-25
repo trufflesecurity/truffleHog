@@ -262,6 +262,13 @@ message GitHubExperimental {
 message GitHubRealtime {
   uint32 listener_port = 1;
   string webhook_secret = 2;
+  string endpoint = 3 [(validate.rules).string.uri_ref = true];
+  oneof credential {
+    credentials.GitHubApp github_app = 4;
+    string token = 5;
+    credentials.Unauthenticated unauthenticated = 6;
+    credentials.BasicAuth basic_auth = 7;
+  }
 }
 
 message GoogleDrive {
