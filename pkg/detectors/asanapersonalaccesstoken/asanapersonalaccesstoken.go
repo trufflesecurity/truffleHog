@@ -20,7 +20,7 @@ var _ detectors.Detector = (*Scanner)(nil)
 var (
 	client = common.SaneHttpClient()
 
-	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"asana"}) + `\b([0-9]{1,}\/[0-9]{16,}:[A-Za-z0-9]{32,})\b`)
+	keyPat = regexp.MustCompile(detectors.PrefixRegex([]string{"asana"}) + `\b([0-9]{1,}\/[0-9]{16,}(?:\/[0-9]{16,})?:[A-Za-z0-9]{32,})\b`)
 )
 
 // Keywords are used for efficiently pre-filtering chunks.
