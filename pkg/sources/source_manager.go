@@ -506,6 +506,8 @@ func (s *SourceManager) runWithoutUnits(ctx context.Context, source Source, repo
 	defer wg.Wait()
 	defer close(ch)
 	if err := source.Chunks(ctx, ch, targets...); err != nil {
+		// Log the error
+		ctx.Logger().Error(err, "Error scanning chunks", "error", err)
 		report.ReportError(Fatal{err})
 		return Fatal{err}
 	}
