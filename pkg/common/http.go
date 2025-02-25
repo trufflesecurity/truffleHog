@@ -89,7 +89,7 @@ type CustomTransport struct {
 	T http.RoundTripper
 }
 
-func userAgent() string {
+func UserAgent() string {
 	if len(feature.UserAgentSuffix.Load()) > 0 {
 		return "TruffleHog " + feature.UserAgentSuffix.Load()
 	}
@@ -97,7 +97,7 @@ func userAgent() string {
 }
 
 func (t *CustomTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Add("User-Agent", userAgent())
+	req.Header.Add("User-Agent", UserAgent())
 	return t.T.RoundTrip(req)
 }
 

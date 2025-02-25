@@ -5,11 +5,12 @@ package access_keys
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
+	"github.com/brianvoe/gofakeit/v7"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -95,9 +96,8 @@ func TestAWS_FromChunk(t *testing.T) {
 	id := testSecrets.MustGetField("AWS_ID")
 	inactiveSecret := testSecrets.MustGetField("AWS_INACTIVE")
 	inactiveID := id[:len(id)-3] + "XYZ"
-	hasher := sha256.New()
-	hasher.Write([]byte(inactiveSecret))
-	hash := string(hasher.Sum(nil))
+
+	hash := gofakeit.Password(true, true, true, false, false, 10)
 
 	type args struct {
 		ctx    context.Context
@@ -231,15 +231,6 @@ func TestAWS_FromChunk(t *testing.T) {
 						"arn":            "arn:aws:iam::619888638459:user/trufflehog-aws-detector-tester",
 						"rotation_guide": "https://howtorotate.com/docs/tutorials/aws/",
 						"user_id":        "AIDAZAVB57H5V3Q4ACRGM",
-					},
-				},
-				{
-					DetectorType: detectorspb.DetectorType_AWS,
-					Verified:     false,
-					Redacted:     inactiveID,
-					ExtraData: map[string]string{
-						"account":       "619888638459",
-						"resource_type": "Access key",
 					},
 				},
 			},
@@ -389,6 +380,15 @@ func TestAWS_FromChunk(t *testing.T) {
 			want: []detectors.Result{
 				{
 					DetectorType: detectorspb.DetectorType_AWS,
+					Verified:     false,
+					Redacted:     "AKIAZAVB57H55F3T4BKH",
+					ExtraData: map[string]string{
+						"resource_type": "Access key",
+						"account":       "619888638459",
+					},
+				},
+				{
+					DetectorType: detectorspb.DetectorType_AWS,
 					Verified:     true,
 					Redacted:     "AKIAZAVB57H55F3T4BKH",
 					ExtraData: map[string]string{
@@ -425,11 +425,20 @@ func TestAWS_FromChunk(t *testing.T) {
 					return x.Redacted < y.Redacted
 				}),
 			}
+
+			sortResults(tt.want)
 			if diff := cmp.Diff(got, tt.want, ignoreOpts...); diff != "" {
 				t.Errorf("AWS.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
 			}
 		})
 	}
+}
+
+// Helper function to sort results due to the order of the redacted
+func sortResults(results []detectors.Result) {
+	sort.SliceStable(results, func(i, j int) bool {
+		return results[i].Redacted < results[j].Redacted
+	})
 }
 
 func BenchmarkFromData(benchmark *testing.B) {
