@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"unicode/utf8"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
 )
@@ -18,7 +19,7 @@ var _ Decoder = (*EscapedUnicode)(nil)
 // https://dencode.com/en/string/unicode-escape
 var (
 	// Standard Unicode notation.
-	//https://unicode.org/standard/principles.html
+	// https://unicode.org/standard/principles.html
 	codePointPat = regexp.MustCompile(`\bU\+([a-fA-F0-9]{4}).?`)
 
 	// Common escape sequence used in programming languages.
@@ -29,7 +30,7 @@ func (d *EscapedUnicode) Type() detectorspb.DecoderType {
 	return detectorspb.DecoderType_ESCAPED_UNICODE
 }
 
-func (d *EscapedUnicode) FromChunk(chunk *sources.Chunk) *DecodableChunk {
+func (d *EscapedUnicode) FromChunk(_ context.Context, chunk *sources.Chunk) *DecodableChunk {
 	if chunk == nil || len(chunk.Data) == 0 {
 		return nil
 	}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
 )
 
@@ -45,7 +46,7 @@ func TestUTF16Decoder(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			chunk := &sources.Chunk{Data: tc.input}
 			decoder := &UTF16{}
-			decodedChunk := decoder.FromChunk(chunk)
+			decodedChunk := decoder.FromChunk(context.Background(), chunk)
 
 			if tc.expectNil {
 				if decodedChunk != nil {
@@ -73,7 +74,7 @@ func TestDLL(t *testing.T) {
 
 	chunk := &sources.Chunk{Data: data}
 	decoder := &UTF16{}
-	decodedChunk := decoder.FromChunk(chunk)
+	decodedChunk := decoder.FromChunk(context.Background(), chunk)
 	if decodedChunk == nil {
 		t.Errorf("Expected chunk with data, got nil")
 		return

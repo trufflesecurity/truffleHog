@@ -122,7 +122,7 @@ func main() {
 				for chunk := range chunksChan {
 					for name, scanner := range selectedScanners {
 						for _, dec := range allDecoders {
-							decoded := dec.FromChunk(&sources.Chunk{Data: chunk.Data})
+							decoded := dec.FromChunk(ctx, &sources.Chunk{Data: chunk.Data})
 							if decoded != nil {
 								foundKeyword := false
 								for _, kw := range scanner.Keywords() {

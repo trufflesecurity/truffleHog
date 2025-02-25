@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"unicode"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
 )
@@ -31,7 +32,7 @@ func (d *Base64) Type() detectorspb.DecoderType {
 	return detectorspb.DecoderType_BASE64
 }
 
-func (d *Base64) FromChunk(chunk *sources.Chunk) *DecodableChunk {
+func (d *Base64) FromChunk(_ context.Context, chunk *sources.Chunk) *DecodableChunk {
 	decodableChunk := &DecodableChunk{Chunk: chunk, DecoderType: d.Type()}
 	encodedSubstrings := getSubstringsOfCharacterSet(chunk.Data, 20, b64CharsetMapping, b64EndChars)
 	decodedSubstrings := make(map[string][]byte)

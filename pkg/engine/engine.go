@@ -13,8 +13,9 @@ import (
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/trufflesecurity/trufflehog/v3/pkg/verificationcache"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/trufflesecurity/trufflehog/v3/pkg/verificationcache"
 
 	"github.com/trufflesecurity/trufflehog/v3/pkg/common"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/config"
@@ -780,7 +781,7 @@ func (e *Engine) scannerWorker(ctx context.Context) {
 		sourceVerify := chunk.Verify
 		for _, decoder := range e.decoders {
 			decodeStart := time.Now()
-			decoded := decoder.FromChunk(chunk)
+			decoded := decoder.FromChunk(ctx, chunk)
 			decodeTime := time.Since(decodeStart).Microseconds()
 			decodeLatency.WithLabelValues(decoder.Type().String(), chunk.SourceName).Observe(float64(decodeTime))
 

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"unicode/utf8"
 
+	"github.com/trufflesecurity/trufflehog/v3/pkg/context"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/pb/detectorspb"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources"
 )
@@ -15,7 +16,7 @@ func (d *UTF16) Type() detectorspb.DecoderType {
 	return detectorspb.DecoderType_UTF16
 }
 
-func (d *UTF16) FromChunk(chunk *sources.Chunk) *DecodableChunk {
+func (d *UTF16) FromChunk(_ context.Context, chunk *sources.Chunk) *DecodableChunk {
 	if chunk == nil || len(chunk.Data) == 0 {
 		return nil
 	}
